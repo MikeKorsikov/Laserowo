@@ -1,0 +1,6 @@
+# --- requirements.txt ---
+ttkbootstrap
+SQLAlchemy
+pandas
+openai
+APScheduler
