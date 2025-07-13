@@ -32,46 +32,74 @@ A desktop application built for managing a laser salon business. It supports app
 ## 📂 Project Structure
 
 ```plaintext
-Laserowo/
-├── main.py                 # Application entry point
-├── config/
-│   ├── database.py         # SQLAlchemy DB engine setup
-│   └── settings.py         # App-wide constants & config
-├── models/
-│   ├── client.py           # Client table definition
-│   ├── appointment.py      # Appointment table
-│   ├── service.py          # Services offered
-│   └── expense.py          # Business expenses
-├── controllers/
-│   ├── client_controller.py
-│   ├── appointment_controller.py
-│   ├── finance_controller.py
-│   └── service_controller.py
-├── views/
-│   ├── main_window.py      # Base GUI setup
-│   ├── client_view.py
-│   ├── appointment_view.py
-│   ├── finance_view.py
-│   └── service_view.py
-├── services/
-│   ├── ai_service.py       # GPT-4 chatbot integration (stub)
-│   └── scheduler.py        # APScheduler background tasks
-├── utils/
-│   ├── helpers.py          # Reusable utility functions
-│   └── constants.py        # App constants
-├── data/
-│   ├── database.db         # SQLite local DB file
-│   └── imports/            # Excel files (future)
+P1_DESKTOP_APP/
 ├── assets/
-│   ├── icons/              # App icons
-│   └── styles/             # ttkbootstrap themes
+│   ├── icons/                 # Application icons
+│   └── styles/                # UI styling configurations
+├── config/
+│   ├── __init__.py
+│   ├── database.py            # SQLAlchemy engine, session, Base setup
+│   └── settings.py            # Application-wide settings (e.g., hours, rates)
+├── controllers/
+│   ├── __init__.py
+│   ├── appointment_controller.py # Logic for appointment management
+│   ├── client_controller.py   # Logic for client management
+│   ├── finance_controller.py  # Logic for financial operations
+│   ├── hardware_controller.py # Logic for hardware tracking
+│   ├── reporting_controller.py# Logic for generating reports
+│   └── service_controller.py  # Logic for services and inventory
+├── data/
+│   └── database.db            # SQLite local database file
+├── imports/
+│   └── excel_importer.py      # Script for importing Excel data
+├── models/                    # SQLAlchemy ORM models (DB schema definitions)
+│   ├── __init__.py
+│   ├── appointment.py
+│   ├── client.py
+│   ├── digital_checklist.py
+│   ├── expense.py
+│   ├── expense_category.py
+│   ├── hardware.py
+│   ├── inventory.py
+│   ├── operating_hour.py
+│   ├── owner_reminder.py
+│   ├── payment_method.py
+│   ├── promotion.py
+│   ├── service.py
+│   ├── treatment_area.py
+│   └── user.py
+├── services/                  # Business logic services (e.g., AI/Chatbot)
+│   ├── __init__.py
+│   ├── ai_service.py          # AI/Chatbot integration
+│   └── scheduler.py           # Background scheduler tasks (e.g., for reminders)
 ├── tests/
-│   ├── test_models.py
+│   ├── __init__.py
 │   ├── test_controllers.py
+│   ├── test_models.py
 │   └── test_services.py
-├── requirements.txt        # Python dependencies
-├── README.md               # Project documentation
-└── .gitignore              # Git exclusions
+├── utils/                     # Utility functions and helpers
+│   ├── __init__.py
+│   ├── constants.py           # Global constants
+│   ├── date_helpers.py        # Date calculation helpers (e.g., visit spacing)
+│   ├── message_helpers.py     # Message formatting for reminders (popups)
+│   └── validation_helpers.py  # Input validation functions
+├── views/                     # CustomTkinter UI components
+│   ├── __init__.py
+│   ├── components/            # Reusable UI widgets
+│   │   ├── date_picker.py
+│   │   └── table_widget.py
+│   ├── appointment_view.py
+│   ├── client_view.py
+│   ├── finance_view.py
+│   ├── hardware_view.py
+│   ├── main_window.py         # Main application window structure
+│   ├── reports_view.py
+│   ├── service_view.py
+│   └── settings_view.py       # View for application settings
+├── LICENSE
+├── README.md                  # This file
+├── main.py                    # Application entry point
+└── requirements.txt           # Python dependencies
 
 ```
 ---

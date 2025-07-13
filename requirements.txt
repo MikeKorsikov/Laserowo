@@ -4,6 +4,7 @@ APScheduler==3.11.0
 certifi==2025.7.9
 colorama==0.4.6
 distro==1.9.0
+et_xmlfile==2.0.0
 greenlet==3.2.3
 h11==0.16.0
 httpcore==1.0.9
@@ -12,10 +13,14 @@ idna==3.10
 jiter==0.10.0
 numpy==2.3.1
 openai==1.95.1
+openpyxl==3.1.5
 pandas==2.3.1
 pillow==10.4.0
 pydantic==2.11.7
 pydantic_core==2.33.2
+PyQt6==6.9.1
+PyQt6-Qt6==6.9.1
+PyQt6_sip==13.10.2
 python-dateutil==2.9.0.post0
 pytz==2025.2
 six==1.17.0
