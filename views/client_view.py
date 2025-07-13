@@ -2,11 +2,13 @@
 import customtkinter as ctk
 from datetime import datetime
 from tkinter import messagebox
+from typing import Callable, Any # Import Callable and Any for type hinting
 
 class ClientView(ctk.CTkFrame):
-    def __init__(self, parent, client_controller):
+    # Rename client_controller to dispatch_action_callback
+    def __init__(self, parent: ctk.CTkFrame, dispatch_action_callback: Callable[[str, Any], Any]):
         super().__init__(parent)
-        self.client_controller = client_controller
+        self.dispatch_action_callback = dispatch_action_callback # Store the callback
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1) # Row for client list
 
@@ -46,7 +48,8 @@ class ClientView(ctk.CTkFrame):
             ("Email:", "email"),
             ("Facebook ID:", "facebook_id"),
             ("Instagram Handle:", "instagram_handle"),
-            ("Date of Birth (YYYY-MM-DD):", "date_of_birth")
+            ("Date of Birth (YYYY-MM-DD):", "date_of_birth"),
+            ("Excel ID:", "excel_id") # Add Excel ID field
         ]
 
         for i, (label_text, key) in enumerate(fields):
@@ -87,7 +90,8 @@ class ClientView(ctk.CTkFrame):
         for widget in self.client_list_scroll_frame.winfo_children():
             widget.destroy()
 
-        clients = self.client_controller.get_all_clients()
+        # Use dispatch_action_callback to get clients
+        clients = self.dispatch_action_callback("client_get_all_clients")
         for i, client_data in enumerate(clients):
             # Using client_data (dictionary) directly in lambda
             client_button = ctk.CTkButton(
@@ -97,7 +101,7 @@ class ClientView(ctk.CTkFrame):
             )
             client_button.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
-    def display_client(self, client_data):
+    def display_client(self, client_data: Dict[str, Any]): # Add type hint
         """Displays the selected client's data in the details section."""
         self.selected_client_data = client_data # Store the full client data
 
@@ -109,29 +113,39 @@ class ClientView(ctk.CTkFrame):
         for key, entry_widget in self.entries.items():
             value = client_data.get(key)
             if value is not None: # Only insert if value is not None
-                if key == 'date_of_birth' and isinstance(value, str):
-                    # Format date for display if it's a string from DB (e.g., 'YYYY-MM-DD')
-                    entry_widget.insert(0, value)
-                else:
-                    entry_widget.insert(0, str(value))
+                # Dates are already strings from to_dict(), so direct insert is fine
+                entry_widget.insert(0, str(value))
             
         # Set checkboxes
         self.booksy_used_checkbox.select() if client_data.get('booksy_used') else self.booksy_used_checkbox.deselect()
         self.blacklisted_checkbox.select() if client_data.get('is_blacklisted') else self.blacklisted_checkbox.deselect()
         self.active_client_checkbox.select() if client_data.get('is_active') else self.active_client_checkbox.deselect()
 
-        # Update history label
+        # Update history label - TODO: Load actual appointment history here.
         client_id = client_data.get('id', 'N/A')
         client_name = client_data.get('full_name', 'Unknown')
-        self.history_text.configure(text=f"History for {client_name} (ID: {client_id})\nTODO: Load actual appointment history here.")
+        
+        # Fetch appointments for the selected client
+        appointments = self.dispatch_action_callback("appointment_get_appointments_by_client_id", client_id=client_id)
+        
+        history_text_content = f"History for {client_name} (ID: {client_id})\n\n"
+        if appointments:
+            for appt in appointments:
+                appt_date = appt.get('appointment_date', 'N/A')
+                service_name = appt.get('service_name', 'N/A')
+                history_text_content += f" - Date: {appt_date}, Service: {service_name}\n"
+        else:
+            history_text_content += "No appointment history found."
+        self.history_text.configure(text=history_text_content)
 
 
     def search_clients(self):
         search_term = self.search_entry.get()
         if search_term:
-            filtered_clients = self.client_controller.search_clients(search_term) # Assuming this method exists
+            # Use dispatch_action_callback for search
+            filtered_clients = self.dispatch_action_callback("client_search_clients", query=search_term)
         else:
-            filtered_clients = self.client_controller.get_all_clients()
+            filtered_clients = self.dispatch_action_callback("client_get_all_clients")
 
         # Clear existing buttons
         for widget in self.client_list_scroll_frame.winfo_children():
@@ -160,7 +174,8 @@ class ClientView(ctk.CTkFrame):
             'instagram_handle': self.entries['instagram_handle'].get() or None,
             'booksy_used': self.booksy_used_checkbox.get() == 1,
             'is_blacklisted': self.blacklisted_checkbox.get() == 1,
-            'is_active': self.active_client_checkbox.get() == 1
+            'is_active': self.active_client_checkbox.get() == 1,
+            'excel_id': self.entries['excel_id'].get() or None # Get excel_id from entry
         }
         
         dob_str = self.entries['date_of_birth'].get()
@@ -173,10 +188,10 @@ class ClientView(ctk.CTkFrame):
         else:
             client_data['date_of_birth'] = None
 
-
-        new_client = self.client_controller.create_client(**client_data)
-        if new_client:
-            messagebox.showinfo("Success", f"Client '{new_client.full_name}' added.")
+        # Use dispatch_action_callback to add client
+        new_client_dict = self.dispatch_action_callback("client_create_client", **client_data)
+        if new_client_dict: # Controller returns Client ORM object, which gets .to_dict() in main.py
+            messagebox.showinfo("Success", f"Client '{new_client_dict.get('full_name')}' added.")
             self.load_clients() # Refresh the list
             self.clear_fields() # Clear the entry fields
         else:
@@ -194,8 +209,9 @@ class ClientView(ctk.CTkFrame):
         for key, entry_widget in self.entries.items():
             current_value = entry_widget.get() or None
             # Only add to updates if the value has changed or it's a field that needs explicit update
-            if current_value != (self.selected_client_data.get(key) or None):
-                updates[key] = current_value
+            # Note: For simplicity, we are sending all current form values for update.
+            # The controller can handle determining if an actual change occurred.
+            updates[key] = current_value
 
         # Handle date_of_birth separately for conversion
         dob_str = self.entries['date_of_birth'].get()
@@ -213,12 +229,13 @@ class ClientView(ctk.CTkFrame):
         updates['is_blacklisted'] = self.blacklisted_checkbox.get() == 1
         updates['is_active'] = self.active_client_checkbox.get() == 1
 
-        updated_client = self.client_controller.update_client(client_id, updates)
-        if updated_client:
-            messagebox.showinfo("Success", f"Client '{updated_client.full_name}' updated.")
+        # Use dispatch_action_callback to update client
+        updated_client_dict = self.dispatch_action_callback("client_update_client", client_id=client_id, updates=updates)
+        if updated_client_dict: # Controller returns Client ORM object, which gets .to_dict() in main.py
+            messagebox.showinfo("Success", f"Client '{updated_client_dict.get('full_name')}' updated.")
             self.load_clients() # Refresh the list
             # Re-display the updated client data to reflect changes
-            self.display_client(updated_client.to_dict()) # Convert ORM object back to dict for display
+            self.display_client(updated_client_dict) # Pass the dictionary directly
         else:
             messagebox.showerror("Error", "Failed to update client. Check logs for details.")
 
@@ -231,7 +248,8 @@ class ClientView(ctk.CTkFrame):
         client_name = self.selected_client_data.get('full_name')
 
         if messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete client '{client_name}' (ID: {client_id})?"):
-            if self.client_controller.delete_client(client_id):
+            # Use dispatch_action_callback to delete client
+            if self.dispatch_action_callback("client_delete_client", client_id=client_id):
                 messagebox.showinfo("Success", f"Client '{client_name}' deleted.")
                 self.load_clients() # Refresh the list
                 self.clear_fields() # Clear the form
@@ -249,5 +267,5 @@ class ClientView(ctk.CTkFrame):
         self.selected_client_data = None # Clear selected client
 
         self.history_text.configure(text="Select a client to view their history.")
-        
-# reviewed
+    
+    # updated

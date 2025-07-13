@@ -1,112 +1,122 @@
 # main.py
+import tkinter as tk
 import customtkinter as ctk
+from tkinter import ttk
+import ttkbootstrap as tb # Using ttkbootstrap for styling
+from config.settings import APP_NAME, WINDOW_SIZE # Use APP_NAME for consistency
 from config.database import init_db, get_db
-from config.settings import settings
 from controllers.client_controller import ClientController
 from controllers.appointment_controller import AppointmentController
+from controllers.service_controller import ServiceController
+from controllers.treatment_area_controller import TreatmentAreaController
+from controllers.payment_method_controller import PaymentMethodController
+# Import views
+from views.main_window import MainWindow # Import the updated MainWindow
 from views.client_view import ClientView
-from views.appointment_view import AppointmentView # Assuming you will create this
+from views.appointment_view import AppointmentView
+# Also import other empty controllers and views for completeness if you plan to use them
+from controllers.finance_controller import FinanceController
+from controllers.hardware_controller import HardwareController
+from controllers.reporting_controller import ReportingController
+# from views.finance_view import FinanceView
+# from views.hardware_view import HardwareView
+# from views.report_view import ReportView
+# from views.service_view import ServiceView
+# from views.settings_view import SettingsView
 
-ctk.set_appearance_mode("System")
-ctk.set_default_color_theme("blue")
-
-class App(ctk.CTk):
+class App(ctk.CTk): # Changed to inherit from ctk.CTk
     def __init__(self):
         super().__init__()
-        self.title(settings.APP_NAME)
-        self.geometry(settings.WINDOW_SIZE)
-
+        self.title(APP_NAME)
+        self.geometry(WINDOW_SIZE)
+        
+        # Initialize database
         init_db()
-        self.db_session = next(get_db())
+        self.db_session = next(get_db()) # Get a database session
 
+        # Initialize controllers
         self.client_controller = ClientController(self.db_session)
         self.appointment_controller = AppointmentController(self.db_session)
-        # Add other controllers here
+        self.service_controller = ServiceController(self.db_session)
+        self.treatment_area_controller = TreatmentAreaController(self.db_session)
+        self.payment_method_controller = PaymentMethodController(self.db_session)
+        self.finance_controller = FinanceController(self.db_session) # Initialize empty controller
+        self.hardware_controller = HardwareController(self.db_session) # Initialize empty controller
+        self.reporting_controller = ReportingController(self.db_session) # Initialize empty controller
+
+        # Store controllers in a dictionary for easy lookup by prefix
         self.controllers = {
             "client": self.client_controller,
             "appointment": self.appointment_controller,
-            # Add other controllers here by their prefixes (e.g., "service": self.service_controller)
+            "service": self.service_controller,
+            "treatment_area": self.treatment_area_controller,
+            "payment_method": self.payment_method_controller,
+            "finance": self.finance_controller,
+            "hardware": self.hardware_controller,
+            "reporting": self.reporting_controller
         }
 
         self.create_main_layout()
 
-    def create_main_layout(self):
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
+        # Handle app closing
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Clients Tab
-        self.clients_tab = self.tabview.add("Clients")
-        # --- FIX FOR AttributeError: 'ClientView' object has no attribute 'pack' ---
-        # Create the ClientView instance
-        self.client_view = ClientView(self.clients_tab, self.dispatch_controller_action)
-        # Then pack the instance *itself* into its parent tab
-        self.client_view.pack(fill="both", expand=True, padx=5, pady=5)
-        # --- END FIX ---
-
-        # Appointments Tab
-        self.appointments_tab = self.tabview.add("Appointments")
-        # Similarly for AppointmentView when it's ready:
-        self.appointment_view = AppointmentView(self.appointments_tab, self.dispatch_controller_action)
-        self.appointment_view.pack(fill="both", expand=True, padx=5, pady=5)
-        # ctk.CTkLabel(self.appointments_tab, text="Appointment Management will go here").pack(padx=20, pady=20)
-
-
-        # Finance Tab (Placeholder)
-        self.finance_tab = self.tabview.add("Finance")
-        ctk.CTkLabel(self.finance_tab, text="Finance Management will go here").pack(padx=20, pady=20)
-
-        # Hardware Tab (Placeholder)
-        self.hardware_tab = self.tabview.add("Hardware")
-        ctk.CTkLabel(self.hardware_tab, text="Hardware Tracking will go here").pack(padx=20, pady=20)
-
-        # Reports Tab (Placeholder)
-        self.reports_tab = self.tabview.add("Reports")
-        ctk.CTkLabel(self.reports_tab, text="Reporting Functionality will go here").pack(padx=20, pady=20)
-
-    def dispatch_controller_action(self, action_name: str, *args, **kwargs):
+    def dispatch_controller_action(self, action_string: str, **kwargs: Any) -> Any:
         """
-        A central dispatcher for views to interact with controllers.
-        This helps decouple views from direct controller instances.
-        The `action_name` should be prefixed with the controller type (e.g., "client_get_all_clients").
+        Dispatches an action to the appropriate controller method.
+        action_string examples: "client_get_all_clients", "appointment_create_appointment"
         """
-        parts = action_name.split('_', 1)
-        if len(parts) < 2:
-            print(f"Error: Invalid action_name format: {action_name}. Expected 'controller_prefix_method_name'.")
-            return None
-
-        controller_prefix = parts[0]
-        method_name = parts[1]
-
-        controller = self.controllers.get(controller_prefix)
-
-        if not controller:
-            print(f"Error: Controller '{controller_prefix}' not found for action '{action_name}'.")
-            return None
-
-        method = getattr(controller, method_name, None)
-
-        if not method:
-            print(f"Error: Method '{method_name}' not found in {controller_prefix} controller.")
-            return None
-
         try:
-            result = method(*args, **kwargs)
+            parts = action_string.split('_', 1) # Split only on the first underscore
+            if len(parts) < 2:
+                raise ValueError(f"Invalid action string format: {action_string}. Expected 'controller_method'.")
+            
+            controller_prefix, method_name = parts
+            
+            controller = self.controllers.get(controller_prefix)
+            if not controller:
+                raise ValueError(f"No controller found for prefix: {controller_prefix}")
 
-            if method_name.startswith("get_") or method_name.startswith("search_"):
-                return result
+            method = getattr(controller, method_name, None)
+            if not method:
+                raise AttributeError(f"Controller '{controller_prefix}' has no method: {method_name}")
+
+            result = method(**kwargs)
+            
+            # Convert SQLAlchemy ORM objects to dictionaries before returning to view
+            if hasattr(result, 'to_dict'):
+                return result.to_dict()
+            elif isinstance(result, list) and all(hasattr(item, 'to_dict') for item in result):
+                return [item.to_dict() for item in result]
             else:
-                if hasattr(result, 'to_dict'):
-                    return result.to_dict()
                 return result
 
         except Exception as e:
-            print(f"An error occurred during dispatching action '{action_name}': {e}")
-            raise # Re-raise for debugging or UI error handling
-            # return None # Or return None if you prefer silent failure or specific error object
+            print(f"Error dispatching action '{action_string}': {e}")
+            import traceback
+            traceback.print_exc()
+            return None # Return None or raise an exception to signal failure
 
+    def create_main_layout(self):
+        # Using MainWindow to manage the main window layout
+        self.main_window = MainWindow(self, self.dispatch_controller_action)
+        # MainWindow already packs itself into the root, no need to pack here
+        
+        # Access tabs from MainWindow and pass them to the respective views
+        # Note: self.main_window.clients_tab and self.main_window.appointments_tab
+        # are created within the MainWindow class.
+        
+        # Pass the specific tab frames from MainWindow to your views
+        self.client_view = ClientView(self.main_window.clients_tab, self.dispatch_controller_action)
+        self.client_view.pack(expand=True, fill="both")
+
+        self.appointment_view = AppointmentView(self.main_window.appointments_tab, self.dispatch_controller_action)
+        self.appointment_view.pack(expand=True, fill="both")
+
+        # Set up other views similarly as they are implemented
 
     def on_closing(self):
-        """Clean up database session on application close."""
+        """Closes the database session when the application is closed."""
         if self.db_session:
             self.db_session.close()
             print("Database session closed.")
@@ -114,7 +124,6 @@ class App(ctk.CTk):
 
 if __name__ == "__main__":
     app = App()
-    app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()
 
-# reviewed
+# updated

@@ -1,42 +1,49 @@
 # controllers/service_controller.py
 from sqlalchemy.orm import Session
-from models.service import Service # Assuming you have a Service model
+from models.service import Service # Make sure this import is correct
 from typing import Optional, List, Dict, Any
 
 class ServiceController:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_or_create_service(self, name: str, description: Optional[str] = None) -> Optional[Service]:
-        """
-        Retrieves a service by name, or creates a new one if it doesn't exist.
-        """
-        service = self.db.query(Service).filter_by(name=name).first()
-        if not service:
-            try:
-                service = Service(name=name, description=description or f"Service imported: {name}")
-                self.db.add(service)
-                self.db.commit()
-                self.db.refresh(service)
-                print(f"Created new service: '{name}' (ID: {service.id})")
-            except Exception as e:
-                self.db.rollback()
-                print(f"Error creating service '{name}': {e}")
-                return None
-        return service
-    
     def get_service_by_name(self, name: str) -> Optional[Service]:
-        """Retrieves a service by its exact name."""
-        return self.db.query(Service).filter_by(name=name).first()
+        """Retrieves a service by its name (case-insensitive)."""
+        if not name: return None
+        return self.db.query(Service).filter(Service.name.ilike(name)).first()
 
-    def get_service_by_id(self, service_id: int) -> Optional[Service]:
-        """Retrieves a service by its ID."""
-        return self.db.query(Service).get(service_id)
+    def create_service(self, name: str, description: Optional[str] = None) -> Optional[Service]:
+        """Creates a new service."""
+        if not name:
+            print("Error: Service name cannot be empty.")
+            return None
+        existing_service = self.get_service_by_name(name)
+        if existing_service:
+            print(f"Warning: Service '{name}' already exists (ID: {existing_service.id}). Skipping creation.")
+            return existing_service
 
-    def get_all_services(self) -> List[Service]:
-        """Retrieves all services."""
-        return self.db.query(Service).all()
+        new_service = Service(name=name, description=description)
+        try:
+            self.db.add(new_service)
+            self.db.commit()
+            self.db.refresh(new_service)
+            print(f"Service created: {new_service.name} (ID: {new_service.id})")
+            return new_service
+        except Exception as e:
+            self.db.rollback()
+            print(f"Error creating service '{name}': {e}")
+            return None
 
-    # Add update_service, delete_service if needed
+    def get_or_create_service(self, name: str, description: Optional[str] = None) -> Optional[Service]:
+        """Gets a service by name, or creates it if it doesn't exist."""
+        service = self.get_service_by_name(name)
+        if service:
+            return service
+        return self.create_service(name, description)
+    
+    def get_all_services(self) -> List[Dict[str, Any]]:
+        """Retrieves all services as a list of dictionaries."""
+        services = self.db.query(Service).order_by(Service.name).all()
+        return [service.to_dict() for service in services]
 
-    # reviewed
+# updated

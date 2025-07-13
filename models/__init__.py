@@ -1,15 +1,13 @@
-# P1_desktop_app/models/__init__.py
+# models/__init__.py (or similar file that collects your models)
+from .base import Base # Assuming base.py defines your Base
+from .client import Client
+from .appointment import Appointment
+from .service import Service # Add this line
+from .treatment_area import TreatmentArea # Add this line
+from .payment_method import PaymentMethod # Add this line
+# from .promotion import Promotion # Add if you define it
+# from .hardware import Hardware # Add if you define it
 
-# Import all your model classes here so that Base.metadata.create_all()
-# can discover them.
-from . import client
-from . import appointment
-from . import service
-from . import treatment_area
-from . import payment_method
-# Add any other model files you have:
-# from . import another_model
-# from . import yet_another_model
-
-# Optionally, you can import the Base itself if other modules need it
-# from .base import Base # If you define Base in a separate base.py
+# If you have a separate file that defines Base and imports all models,
+# ensure these new models are imported there too.
+# updated 
