@@ -83,23 +83,28 @@ Laserowo/
 ```bash
 git clone https://github.com/MikeKorsikov/Laserowo.git
 cd Laserowo
-
+```
 
 2. **Create and activate a virtual environment**
+```bash
 # Windows
 python -m venv venv
 venv\Scripts\activate
+```
 
+```bash
 # macOS/Linux
 python3 -m venv venv
 source venv/bin/activate
-
+```
 
 3. **Install dependencies**
+```bash
 pip install -r requirements.txt
-
+```
 
 4. **Run the application**
+```bash
 python main.py
 ```
 ---
