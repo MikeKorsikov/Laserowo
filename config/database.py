@@ -1,57 +1,48 @@
 # config/database.py
 import os
+import sys
+
+# Add the parent directory (P1_DESKTOP_APP) to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '..')
+sys.path.insert(0, project_root)
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Define the path to the database file
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_PATH = os.path.join(os.path.dirname(BASE_DIR), 'data', 'database.db')
-DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+# Import Base from base_model
+from models.base_model import Base # <--- CHANGE THIS LINE: Import Base from base_model
 
-# SQLAlchemy Engine
-# The echo=True argument will log all SQL statements, useful for debugging.
+# Import all your models here so Base.metadata knows about them
+import models.appointment
+import models.client
+import models.digital_checklist
+import models.expense
+import models.expense_category
+import models.hardware
+import models.inventory
+import models.operating_hour
+import models.owner_reminder
+import models.payment_method
+import models.promotion
+import models.service
+import models.treatment_area
+import models.user
+
+DATABASE_URL = "sqlite:///./data/database.db"
+
 engine = create_engine(DATABASE_URL, echo=False)
 
-# Base class for declarative models
-Base = declarative_base()
-
-# Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    """
-    Initializes the database by creating all tables defined in Base.
-    This should be called once when the application starts.
-    """
-    # Ensure the 'data' directory exists
-    data_dir = os.path.join(os.path.dirname(BASE_DIR), 'data')
+    data_dir = os.path.join(project_root, 'data')
     os.makedirs(data_dir, exist_ok=True)
 
-    # Import all models here so that Base knows about them before creating tables
-    # This is important for SQLAlchemy to discover all models
-    import models.appointment
-    import models.client
-    import models.digital_checklist
-    import models.expense
-    import models.expense_category
-    import models.hardware
-    import models.inventory
-    import models.operating_hour
-    import models.owner_reminder
-    import models.payment_method
-    import models.promotion
-    import models.service
-    import models.treatment_area
-    import models.user
-
-    Base.metadata.create_all(bind=engine)
-    print(f"Database initialized at: {DATABASE_PATH}")
+    print(f"Database initialized at: {DATABASE_URL.replace('sqlite:///', '')}")
+    Base.metadata.create_all(bind=engine) # Base is now from models.base_model
 
 def get_db():
-    """
-    Dependency to get a database session.
-    Use this in your controllers to get a session, ensuring it's closed afterwards.
-    """
     db = SessionLocal()
     try:
         yield db
@@ -59,6 +50,4 @@ def get_db():
         db.close()
 
 if __name__ == "__main__":
-    # This block allows you to run `python config/database.py`
-    # to initialize the database directly for testing purposes.
     init_db()

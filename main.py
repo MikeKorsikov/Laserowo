@@ -1,29 +1,28 @@
 # main.py
 import customtkinter as ctk
 from config.database import init_db, get_db
-from config.settings import settings
+from config.settings import settings # Correct way to import settings
 from controllers.client_controller import ClientController
 # Import other controllers as they are created
-from views.main_window import MainWindow # Placeholder for your main window
+# REMOVE THIS LINE: from views.main_window import MainWindow # Placeholder for your main window
 from views.client_view import ClientView # Your new client view
 
 # Set custom tkinter appearance
-ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "dark-blue", "green"
+ctk.set_appearance_mode("System")
+ctk.set_default_color_theme("blue")
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title(settings.APP_NAME)
-        self.geometry("1200x800") # Adjust as needed
+        self.title(settings.APP_NAME) # Access APP_NAME from the settings instance
+        self.geometry(settings.WINDOW_SIZE) # Access WINDOW_SIZE from the settings instance
 
         # Initialize database
         init_db()
-        self.db_session = next(get_db()) # Get a single session for the app lifetime for now (simple approach)
+        self.db_session = next(get_db())
 
         # Initialize controllers
         self.client_controller = ClientController(self.db_session)
-        # self.appointment_controller = AppointmentController(self.db_session)
         # ... other controllers
 
         self.create_main_layout()
@@ -54,7 +53,6 @@ class App(ctk.CTk):
         self.reports_tab = self.tabview.add("Reports")
         ctk.CTkLabel(self.reports_tab, text="Reporting Functionality will go here").pack(padx=20, pady=20)
 
-
     def dispatch_controller_action(self, controller_method_name: str, **kwargs):
         """
         A central dispatcher for view to interact with controllers.
@@ -83,7 +81,6 @@ class App(ctk.CTk):
                 print(f"Error: Method '{controller_method_name}' not found in ClientController.")
                 return None
 
-
     def on_closing(self):
         """Clean up database session on application close."""
         if self.db_session:
@@ -93,5 +90,5 @@ class App(ctk.CTk):
 
 if __name__ == "__main__":
     app = App()
-    app.protocol("WM_DELETE_WINDOW", app.on_closing) # Handle window close event
+    app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()

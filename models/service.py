@@ -1,14 +1,14 @@
 # models/service.py
-from sqlalchemy import String, Boolean, DECIMAL, Integer
+from sqlalchemy import String, Boolean, DECIMAL, Integer, Text # Add Text here
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
+from typing import List # Ensure List is imported
 from models.base_model import BaseModel
 
 class Service(BaseModel):
     __tablename__ = 'services'
 
     service_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=True) # Text will now be recognized
     default_price: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 2), nullable=True)
     estimated_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

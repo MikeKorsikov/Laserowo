@@ -1,7 +1,8 @@
 # views/client_view.py
 import customtkinter as ctk
 from datetime import date, datetime
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Optional, Dict, Any # Add List, Optional, Dict, Any here
+
 
 class ClientView(ctk.CTkFrame):
     def __init__(self, master, controller_callback: Callable, **kwargs):
