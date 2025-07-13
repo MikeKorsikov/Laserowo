@@ -1,8 +1,8 @@
 # models/client.py
-from sqlalchemy import Column, Integer, String, Date, Boolean
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DECIMAL, Text
 from sqlalchemy.orm import relationship
-from models.base import Base # Assuming your Base is defined here
-from datetime import date # Import date for type hinting
+from models.base import Base # <--- This is the crucial import
+from datetime import date # If you use date types
 
 class Client(Base):
     __tablename__ = 'clients'

@@ -1,5 +1,6 @@
 # models/treatment_area.py
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship # <--- Make sure relationship is imported
 from models.base import Base
 
 class TreatmentArea(Base):
@@ -8,6 +9,9 @@ class TreatmentArea(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
+
+    # Add the appointments relationship
+    appointments = relationship("Appointment", back_populates="treatment_area") # <--- ADD THIS LINE
 
     def to_dict(self):
         return {
@@ -18,5 +22,3 @@ class TreatmentArea(Base):
 
     def __repr__(self):
         return f"<TreatmentArea(id={self.id}, name='{self.name}')>"
-
-# updated

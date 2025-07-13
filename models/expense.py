@@ -3,6 +3,7 @@ from sqlalchemy import String, DECIMAL, Date, Text, ForeignKey, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base_model import BaseModel
 from typing import Optional
+from models.base import Base
 
 class Expense(BaseModel):
     __tablename__ = 'expenses'

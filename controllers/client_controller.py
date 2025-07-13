@@ -1,7 +1,8 @@
 # controllers/client_controller.py
 from sqlalchemy.orm import Session
-from models.client import Client # Ensure this import is correct
+from models.client import Client 
 from typing import Optional, List, Dict, Any, Union
+from datetime import date 
 
 class ClientController:
     def __init__(self, db: Session):

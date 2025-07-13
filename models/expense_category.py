@@ -3,6 +3,8 @@ from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base_model import BaseModel
 from typing import List
+from models.base import Base
+from datetime import date
 
 class ExpenseCategory(BaseModel):
     __tablename__ = 'expense_categories' # Ensure this matches the foreign key reference

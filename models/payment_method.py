@@ -1,5 +1,6 @@
 # models/payment_method.py
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship # <--- Make sure relationship is imported
 from models.base import Base
 
 class PaymentMethod(Base):
@@ -7,7 +8,10 @@ class PaymentMethod(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    description = Column(String, nullable=True) # e.g., "Cash", "Card", "Bank Transfer"
+    description = Column(String, nullable=True)
+
+    # Add the appointments relationship
+    appointments = relationship("Appointment", back_populates="payment_method") # <--- ADD THIS LINE
 
     def to_dict(self):
         return {
@@ -18,5 +22,3 @@ class PaymentMethod(Base):
 
     def __repr__(self):
         return f"<PaymentMethod(id={self.id}, name='{self.name}')>"
-
-# updated

@@ -1,9 +1,9 @@
 # D:\PYTHON\Laserowo\P1_desktop_app\models\digital_checklist.py
 
-from sqlalchemy import Column, Integer, Boolean, String, ForeignKey, Date, DateTime
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DECIMAL, Text
 from sqlalchemy.orm import relationship
-from config.database import Base
-from datetime import datetime
+from models.base import Base # <--- This is the crucial import
+from datetime import date # If you use date types
 
 class DigitalChecklist(Base):
     __tablename__ = 'digital_checklists'

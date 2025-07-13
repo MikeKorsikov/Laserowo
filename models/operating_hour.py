@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, Time, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional
 import enum
+from models.base import Base
 
 # Make sure your Base is imported correctly from your database configuration
 # Assuming your Base is defined in config/database.py like this:

@@ -15,8 +15,8 @@ current_script_dir = Path(__file__).resolve().parent
 
 # The project root is two levels up from excel_importer.py:
 # P1_desktop_app/data/imports/excel_importer.py
-# ^           ^      ^
-# project_root data   imports
+# ^           ^     ^
+# project_root data  imports
 project_root = current_script_dir.parent.parent
 
 # Add project root to sys.path to allow imports like 'controllers.client_controller'
@@ -29,13 +29,13 @@ from controllers.appointment_controller import AppointmentController
 from controllers.service_controller import ServiceController
 from controllers.treatment_area_controller import TreatmentAreaController
 from controllers.payment_method_controller import PaymentMethodController
+from controllers.promotion_controller import PromotionController # Import PromotionController
+from controllers.hardware_controller import HardwareController   # Import HardwareController
 from models.client import Client # Needed for direct client queries in importer
-# Assuming your controllers have a get_or_create_X method for convenience
-# e.g., service_controller.get_or_create_service(name)
 
 # --- Configuration for your Excel File ---
 # IMPORTANT: Adjust this path if your Excel file is not directly in 'data/imports'
-EXCEL_FILE_PATH = project_root / "data" / "imports" / "KLIENTS 2024.xls" # NEW
+EXCEL_FILE_PATH = project_root / "data" / "imports" / "KLIENTS 2024.xls"
 
 CLIENTS_SHEET_NAME = "KLIENCI"
 VISITS_SHEET_NAME = "WIZYTY"
@@ -44,7 +44,7 @@ VISITS_SHEET_NAME = "WIZYTY"
 # Ensure these match the EXACT column headers in your "KLIENCI" sheet.
 CLIENT_COLUMN_MAPPING = {
     'ID Klienta': 'excel_client_id',
-    'Imie Nazwisko': 'full_name',
+    'Imie Nazwisko ': 'full_name',
     'Telefon kontaktowy': 'phone_number',
     'e-mail.': 'email',
     'Facebook': 'facebook_id',
@@ -65,13 +65,18 @@ VISIT_COLUMN_MAPPING = {
     'Godzina Rozpoczęcia': 'start_time',
     'Godzina Zakończenia': 'end_time',
     'Numer wizyty': 'session_number_for_area',
-    'Obszar': 'area_name',
+    'Obszar': 'treatment_area_name', # Renamed from 'area_name' to 'treatment_area_name' to match controller/model
     'Moc , J/cm3': 'power_j_cm3',
     'Następna wizyta': 'next_suggested_appointment_date',
-    'Kwota': 'amount',
+    'Kwota': 'price', # Renamed from 'amount' to 'price' to match controller/model
     'Usługa': 'service_name',
     'Metoda Płatności': 'payment_method_name',
-    'Status wizyty': 'appointment_status',
+    'Status wizyty': 'status', # Renamed from 'appointment_status' to 'status' to match controller/model
+    'Typ wizyty': 'appointment_type', # Added if you have this column in Excel
+    'Pracownik': 'staff_member', # Added if you have this column in Excel
+    'Czas trwania': 'duration_minutes', # Added if you have this column in Excel
+    'Przelozona': 'is_rescheduled_excel', # Added for boolean handling
+    'Uwagi': 'notes', # Added if you have this column in Excel
     'Status następnej wizyty': 'status_next_appointment', # Keep for logging, as it's not directly mapped
 }
 
@@ -108,14 +113,14 @@ def parse_excel_date(excel_date_value: Any, row_identifier: str, field_name: str
         # Common formats, including Polish specific ones. Be careful with ambiguous ones (e.g., 01.02.2023 could be Feb 1 or Jan 2)
         # Prioritize YYYY-MM-DD or unambiguous formats first.
         formats = [
-            '%Y-%m-%d',        # 2023-01-25
-            '%d.%m.%Y',        # 25.01.2023 (Polish format)
-            '%d/%m/%Y',        # 25/01/2023
-            '%Y/%m/%d',        # 2023/01/25
+            '%Y-%m-%d',         # 2023-01-25
+            '%d.%m.%Y',         # 25.01.2023 (Polish format)
+            '%d/%m/%Y',         # 25/01/2023
+            '%Y/%m/%d',         # 2023/01/25
             '%Y-%m-%dT%H:%M:%S', # For datetime strings
-            '%m/%d/%Y',        # 01/25/2023
-            '%b %d, %Y',       # Jan 25, 2023
-            '%B %d, %Y',       # January 25, 2023
+            '%m/%d/%Y',         # 01/25/2023
+            '%b %d, %Y',        # Jan 25, 2023
+            '%B %d, %Y',        # January 25, 2023
         ]
         for fmt in formats:
             try:
@@ -156,10 +161,10 @@ def parse_excel_time(excel_time_value: Any, row_identifier: str, field_name: str
 
     if isinstance(excel_time_value, str):
         formats = [
-            '%H:%M:%S',       # 14:30:00
-            '%H:%M',          # 14:30
-            '%I:%M:%S %p',    # 02:30:00 PM
-            '%I:%M %p',       # 02:30 PM
+            '%H:%M:%S',      # 14:30:00
+            '%H:%M',         # 14:30
+            '%I:%M:%S %p',   # 02:30:00 PM
+            '%I:%M %p',      # 02:30 PM
         ]
         for fmt in formats:
             try:
@@ -184,6 +189,8 @@ def import_data_from_excel(file_path: str, db_session: Session):
     service_controller = ServiceController(db_session)
     treatment_area_controller = TreatmentAreaController(db_session)
     payment_method_controller = PaymentMethodController(db_session)
+    promotion_controller = PromotionController(db_session) # Initialize PromotionController
+    hardware_controller = HardwareController(db_session)   # Initialize HardwareController
 
     print(f"\n--- Starting data import from: {file_path} ---")
 
@@ -221,14 +228,15 @@ def import_data_from_excel(file_path: str, db_session: Session):
 
             # Clean and process values
             full_name = clean_string(raw_full_name)
-            excel_client_id = clean_string(raw_excel_client_id)
+            # Ensure excel_client_id is a string as it might be numerical in Excel
+            excel_client_id = str(int(raw_excel_client_id)) if pd.notna(raw_excel_client_id) else None
             phone_number = clean_string(raw_phone_number)
             email = clean_string(raw_email)
             
             client_identifier_log = f"Row {row_num} (Name: {full_name or 'N/A'}, Phone: {phone_number or 'N/A'}, Email: {email or 'N/A'}, Excel ID: {excel_client_id or 'N/A'})"
 
-            if not full_name and not phone_number and not email:
-                print(f"Skipping client {client_identifier_log}: No identifying information (Name, Phone, Email).")
+            if not full_name and not phone_number and not email and not excel_client_id:
+                print(f"Skipping client {client_identifier_log}: No identifying information (Name, Phone, Email, Excel ID).")
                 failed_clients_count += 1
                 continue
 
@@ -240,9 +248,9 @@ def import_data_from_excel(file_path: str, db_session: Session):
             # Attempt to find an existing client
             existing_client = None
             if excel_client_id:
-                existing_client = client_controller.get_client_by_excel_id(excel_client_id) # Assuming this method exists
+                existing_client = client_controller.get_client_by_excel_id(excel_client_id)
             
-            if not existing_client:
+            if not existing_client: # Only search by other means if not found by excel_id
                 existing_client = client_controller.get_client_by_phone_or_email_or_name(
                     phone_number=phone_number, email=email, full_name=full_name
                 )
@@ -264,7 +272,6 @@ def import_data_from_excel(file_path: str, db_session: Session):
                 is_active_val = clean_string(row.get('is_active_excel'))
                 is_active = (is_active_val == '+') if is_active_val else True # Default to True
 
-                # Process 'Data Urodzenia' (date_of_birth)
                 date_of_birth = parse_excel_date(row.get('date_of_birth'), client_identifier_log, 'date_of_birth')
 
                 client_data = {
@@ -287,9 +294,12 @@ def import_data_from_excel(file_path: str, db_session: Session):
                 if db_client.excel_id: # Use the ID from the created/found client
                     excel_identifier_to_db_id[db_client.excel_id] = db_client.id
                 if db_client.full_name:
+                    # Store normalized full name for lookup
                     excel_identifier_to_db_id[db_client.full_name.lower()] = db_client.id 
                 if db_client.phone_number: # Store by phone number as well
                     excel_identifier_to_db_id[db_client.phone_number] = db_client.id
+                if db_client.email: # Store by email as well
+                    excel_identifier_to_db_id[db_client.email.lower()] = db_client.id
 
             else:
                 print(f"CRITICAL ERROR: Failed to create or find client for {client_identifier_log}. Skipping this client record.")
@@ -321,12 +331,12 @@ def import_data_from_excel(file_path: str, db_session: Session):
         row_num = index + 2 # Excel rows are 1-indexed, and header is row 1
         
         try:
-            # Get raw values
+            # Get raw values for client lookup
             raw_excel_client_id_for_appt = row.get('excel_client_id_for_appt')
             raw_client_full_name = row.get('client_full_name')
 
             # Clean and process values
-            excel_client_id_for_appt = clean_string(raw_excel_client_id_for_appt)
+            excel_client_id_for_appt = str(int(raw_excel_client_id_for_appt)) if pd.notna(raw_excel_client_id_for_appt) else None
             client_full_name = clean_string(raw_client_full_name)
 
             appt_identifier = f"Row {row_num} (Client: {client_full_name or 'N/A'}, Excel Client ID: {excel_client_id_for_appt or 'N/A'}, Date: {row.get('appointment_date') or 'N/A'})"
@@ -335,10 +345,8 @@ def import_data_from_excel(file_path: str, db_session: Session):
             # Try to find client in our mapping, prioritizing Excel ID then cleaned full name
             if excel_client_id_for_appt and excel_client_id_for_appt in excel_identifier_to_db_id:
                 client_id = excel_identifier_to_db_id[excel_client_id_for_appt]
-                # print(f"Debug: Client '{client_full_name}' for {appt_identifier} matched by Excel ID from cached clients.")
             elif client_full_name and client_full_name.lower() in excel_identifier_to_db_id:
                 client_id = excel_identifier_to_db_id[client_full_name.lower()]
-                # print(f"Debug: Client '{client_full_name}' for {appt_identifier} matched by name from cached clients.")
             
             # If not found in cache, query DB directly (should ideally be rare if client import ran first)
             if not client_id:
@@ -346,7 +354,7 @@ def import_data_from_excel(file_path: str, db_session: Session):
                 if excel_client_id_for_appt:
                     found_client_db = client_controller.get_client_by_excel_id(excel_client_id_for_appt)
                 if not found_client_db and client_full_name:
-                    found_client_db = client_controller.get_client_by_name(client_full_name) # Assuming this method exists
+                    found_client_db = client_controller.get_client_by_name(client_full_name)
 
                 if found_client_db:
                     client_id = found_client_db.id
@@ -357,41 +365,47 @@ def import_data_from_excel(file_path: str, db_session: Session):
                         excel_identifier_to_db_id[found_client_db.full_name.lower()] = client_id
                     if found_client_db.phone_number:
                         excel_identifier_to_db_id[found_client_db.phone_number] = client_id
+                    if found_client_db.email:
+                        excel_identifier_to_db_id[found_client_db.email.lower()] = client_id
                     print(f"Info: Client '{client_full_name}' for {appt_identifier} found by direct DB query (ID: {client_id}).")
             
+            # If client still not found after all attempts, create a placeholder client for the appointment
+            # We now pass client_data dictionary to create_appointment, which handles the get_or_create internally.
             if not client_id:
-                # If client still not found, create a placeholder client for the appointment
-                placeholder_name = client_full_name if client_full_name else f"Unknown Client for Appt {row_num}"
-                # Check for existing placeholder (either from previous import or this run)
-                existing_placeholder_client = client_controller.get_client_by_name(placeholder_name)
-                
-                if existing_placeholder_client:
-                    client_db_obj = existing_placeholder_client
+                placeholder_client_data = {
+                    'full_name': client_full_name if client_full_name else f"Unknown Client for Appt {row_num}",
+                    'email': f"placeholder_{uuid.uuid4().hex[:8]}@example.com", # Generate unique email
+                    'phone_number': None,
+                    'is_active': False, # Mark placeholder clients as inactive by default
+                    'notes': f"Auto-created placeholder for client from Excel Appointment Row {row_num}.",
+                    'excel_id': excel_client_id_for_appt # Store original excel ID if available
+                }
+                # Call client_controller to get or create the client
+                client_db_obj = client_controller.get_or_create_client(
+                    full_name=placeholder_client_data['full_name'],
+                    email=placeholder_client_data['email'],
+                    phone_number=placeholder_client_data['phone_number'],
+                    excel_id=placeholder_client_data['excel_id'],
+                    is_active=placeholder_client_data['is_active'],
+                    notes=placeholder_client_data['notes']
+                )
+
+                if client_db_obj:
                     client_id = client_db_obj.id
-                    print(f"Warning: Re-using existing placeholder client '{placeholder_name}' with ID: {client_id} for {appt_identifier}.")
+                    print(f"Placeholder client created/re-used for {appt_identifier} with ID: {client_id}.")
+                    # Add to map for faster future lookups
+                    if client_db_obj.excel_id:
+                        excel_identifier_to_db_id[client_db_obj.excel_id] = client_id
+                    if client_db_obj.full_name:
+                        excel_identifier_to_db_id[client_db_obj.full_name.lower()] = client_id
+                    if client_db_obj.phone_number:
+                        excel_identifier_to_db_id[client_db_obj.phone_number] = client_id
+                    if client_db_obj.email:
+                        excel_identifier_to_db_id[client_db_obj.email.lower()] = client_id
                 else:
-                    print(f"Warning: Client '{placeholder_name}' (Excel ID: {excel_client_id_for_appt}) not found for appointment {appt_identifier}. Creating a new placeholder client.")
-                    placeholder_client_data = {
-                        'full_name': placeholder_name,
-                        'email': f"placeholder_{uuid.uuid4().hex[:8]}@example.com", # Generate unique email
-                        'phone_number': None,
-                        'is_active': False, # Mark placeholder clients as inactive by default
-                        'notes': f"Auto-created placeholder for client from Excel Appointment Row {row_num}.",
-                        'excel_id': excel_client_id_for_appt # Store original excel ID if available
-                    }
-                    client_db_obj = client_controller.create_client(**placeholder_client_data)
-                    if client_db_obj:
-                        client_id = client_db_obj.id
-                        print(f"New placeholder client created with ID: {client_id}.")
-                        # Add to map in case this unknown client has more appointments later in the sheet
-                        if client_db_obj.excel_id:
-                            excel_identifier_to_db_id[client_db_obj.excel_id] = client_id
-                        if client_db_obj.full_name:
-                            excel_identifier_to_db_id[client_db_obj.full_name.lower()] = client_id
-                    else:
-                        print(f"CRITICAL ERROR: Could not create placeholder client for appointment {appt_identifier}. Skipping appointment.")
-                        failed_appointments_count += 1
-                        continue # Skip this appointment if client cannot be linked/created
+                    print(f"CRITICAL ERROR: Could not create placeholder client for appointment {appt_identifier}. Skipping appointment.")
+                    failed_appointments_count += 1
+                    continue # Skip this appointment if client cannot be linked/created
 
             # Parse appointment date and times. Set sensible defaults if missing.
             appointment_date = parse_excel_date(row.get('appointment_date'), appt_identifier, 'appointment_date', default=date.today())
@@ -410,38 +424,15 @@ def import_data_from_excel(file_path: str, db_session: Session):
                 temp_dt_start = datetime.combine(date.min, start_time_obj)
                 end_time_obj = (temp_dt_start + timedelta(hours=1)).time()
                 # If adding 1 hour pushes to next day, cap at 23:59:59
-                if end_time_obj < start_time_obj: # Means it wrapped around to next day
+                if end_time_obj < start_time_obj: # Means it wrapped around to next day or is still earlier
                     end_time_obj = time(23, 59, 59)
 
 
-            # Look up or create Service, Treatment Area, Payment Method
-            service_id = None
-            service_name = clean_string(row.get('service_name'))
-            if service_name:
-                service = service_controller.get_or_create_service(service_name)
-                if service: service_id = service.id
-                else: print(f"Warning: Service '{service_name}' could not be created/found for {appt_identifier}. Linking as None.")
-
-            area_id = None
-            area_name = clean_string(row.get('area_name'))
-            if area_name:
-                area = treatment_area_controller.get_or_create_area(area_name)
-                if area: area_id = area.id
-                else: print(f"Warning: Treatment Area '{area_name}' could not be created/found for {appt_identifier}. Linking as None.")
-
-            payment_method_id = None
-            payment_method_name = clean_string(row.get('payment_method_name'))
-            if payment_method_name:
-                payment_method = payment_method_controller.get_or_create_method(payment_method_name)
-                if payment_method: payment_method_id = payment_method.id
-                else: print(f"Warning: Payment Method '{payment_method_name}' could not be created/found for {appt_identifier}. Linking as None.")
-
             # Prepare other appointment data
-            amount = row.get('amount')
-            amount = float(amount) if pd.notna(amount) else 0.0
+            price = row.get('price') # Changed from 'amount' to 'price'
+            price = float(price) if pd.notna(price) else 0.0
 
             session_number = row.get('session_number_for_area')
-            # Use pd.to_numeric for robust conversion, then convert to int if not NaN
             session_number_for_area = pd.to_numeric(session_number, errors='coerce')
             session_number_for_area = int(session_number_for_area) if pd.notna(session_number_for_area) else None
 
@@ -449,40 +440,50 @@ def import_data_from_excel(file_path: str, db_session: Session):
 
             next_suggested_appointment_date = parse_excel_date(row.get('next_suggested_appointment_date'), appt_identifier, 'next_suggested_appointment_date')
 
-            appointment_status_excel = clean_string(row.get('appointment_status'))
-            appointment_status = appointment_status_excel if appointment_status_excel else 'Completed' # Default status
+            # Get names for services, areas, payment methods, promotions, hardware
+            service_name = clean_string(row.get('service_name'))
+            treatment_area_name = clean_string(row.get('treatment_area_name')) # Changed from 'area_name'
+            payment_method_name = clean_string(row.get('payment_method_name'))
+            promotion_name = clean_string(row.get('promotion_name')) # New
+            hardware_name = clean_string(row.get('hardware_name')) # New
+            notes = clean_string(row.get('notes')) # New, from mapping
+            appointment_type = clean_string(row.get('appointment_type')) # New
+            status = clean_string(row.get('status')) # Changed from 'appointment_status'
+            staff_member = clean_string(row.get('staff_member')) # New
+            duration_minutes = pd.to_numeric(row.get('duration_minutes'), errors='coerce') # New
+            duration_minutes = int(duration_minutes) if pd.notna(duration_minutes) else None
+
+            is_rescheduled_val = clean_string(row.get('is_rescheduled_excel'))
+            is_rescheduled = (is_rescheduled_val == 'Tak') if is_rescheduled_val else False # Assuming 'Tak' for True
 
             # Log and ignore 'Status następnej wizyty' if it's not mapped to a model field
             status_next_appointment_log = clean_string(row.get('status_next_appointment'))
             if status_next_appointment_log:
                 print(f"Note: 'Status następnej wizyty' ('{status_next_appointment_log}') for {appt_identifier} is not mapped to an Appointment model field. Ignoring for import.")
 
-            # Promotion ID and Hardware ID - ensure they are integers or None
-            # Need to get raw values first, as .get might return NaN if column is empty
-            raw_promotion_id = row.get('promotion_id')
-            promotion_id = pd.to_numeric(raw_promotion_id, errors='coerce')
-            promotion_id = int(promotion_id) if pd.notna(promotion_id) else None
-            
-            raw_hardware_id = row.get('hardware_id')
-            hardware_id = pd.to_numeric(raw_hardware_id, errors='coerce')
-            hardware_id = int(hardware_id) if pd.notna(hardware_id) else None
 
             appointment_data = {
-                'client_id': client_id,
-                'service_id': service_id,
-                'area_id': area_id,
+                'client_id': client_id, # Passed directly, client resolved above
                 'appointment_date': appointment_date,
                 'start_time': start_time_obj,
                 'end_time': end_time_obj,
                 'session_number_for_area': session_number_for_area,
                 'power_j_cm3': power_j_cm3,
-                'appointment_status': appointment_status,
-                'amount': amount,
-                'payment_method_id': payment_method_id,
-                'promotion_id': promotion_id,
-                'hardware_id': hardware_id,
-                'notes': None, # Add notes field if you have it in Excel
-                'next_suggested_appointment_date': next_suggested_appointment_date
+                'price': price, # Changed from 'amount' to 'price'
+                'notes': notes,
+                'next_suggested_appointment_date': next_suggested_appointment_date,
+                # Pass names to the controller; it will handle getting/creating IDs
+                'service_name': service_name,
+                'treatment_area_name': treatment_area_name, # Changed to 'treatment_area_name'
+                'payment_method_name': payment_method_name,
+                'promotion_name': promotion_name,
+                'hardware_name': hardware_name,
+                'appointment_type': appointment_type,
+                'status': status, # Changed from 'appointment_status'
+                'staff_member': staff_member,
+                'duration_minutes': duration_minutes,
+                'is_rescheduled': is_rescheduled,
+                # 'original_appointment_id': None, # Keep if you want to explicitly pass None, otherwise it's default
             }
 
             created_appointment = appointment_controller.create_appointment(**appointment_data)
@@ -513,5 +514,3 @@ if __name__ == "__main__":
         import_data_from_excel(EXCEL_FILE_PATH, db_session)
     finally:
         db_session.close() # Always close the session
-
-# reviewed
