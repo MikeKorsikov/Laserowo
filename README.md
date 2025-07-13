@@ -26,6 +26,33 @@ A desktop application built for managing a laser salon business. It supports app
 - ⏳ Background scheduler setup *(placeholder)*
 
 ---
+## 🔧 Installation
+
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/MikeKorsikov/Laserowo.git
+cd Laserowo
+
+
+2. **Create and activate a virtual environment**
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
+
+
+3. **Install dependencies**
+pip install -r requirements.txt
+
+
+4. **Run the application**
+python main.py
+
+---
 
 ## 📂 Project Structure
 
@@ -80,28 +107,3 @@ laser_business_app/
 
 ---
 
-## 🔧 Installation
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/MikeKorsikov/Laserowo.git
-cd Laserowo
-
-
-2. **Create and activate a virtual environment**
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-
-
-3. **Install dependencies**
-pip install -r requirements.txt
-
-
-4. **Run the application**
-python main.py
