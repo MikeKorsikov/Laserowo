@@ -1,7 +1,7 @@
 # config/settings.py
 
 class AppSettings:
-    APP_NAME = "Laser Business Management" # This is APP_TITLE equivalent
+    APP_NAME = "Laserowo Business Management" # This is APP_TITLE equivalent
     # You didn't explicitly define WINDOW_SIZE, so we'll add it
     WINDOW_SIZE = "1200x800" # Example default window size
 

@@ -1,23 +1,24 @@
-# models/digital_checklist.py
-from sqlalchemy import String, Boolean, Date, Text, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from models.base_model import BaseModel
-from datetime import date
+# D:\PYTHON\Laserowo\P1_desktop_app\models\digital_checklist.py
 
-class DigitalChecklist(BaseModel):
+from sqlalchemy import Column, Integer, Boolean, String, ForeignKey, Date, DateTime
+from sqlalchemy.orm import relationship
+from config.database import Base
+from datetime import datetime
+
+class DigitalChecklist(Base):
     __tablename__ = 'digital_checklists'
 
-    client_id: Mapped[int] = mapped_column(Integer, ForeignKey('clients.id'), nullable=False)
-    checklist_date: Mapped[Date] = mapped_column(Date, nullable=False, default=date.today)
-    allergies: Mapped[str] = mapped_column(Text, nullable=True)
-    health_issues: Mapped[str] = mapped_column(Text, nullable=True)
-    medications: Mapped[str] = mapped_column(Text, nullable=True)
-    other_notes: Mapped[str] = mapped_column(Text, nullable=True)
-    is_completed: Mapped[bool] = mapped_column(Boolean, default=False) # Or True, if it's considered complete on creation
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey('clients.id'), nullable=False) # Foreign key to clients table
+    date_filled = Column(Date, default=datetime.now().date(), nullable=False)
+    consent_given = Column(Boolean, default=False)
+    skin_type_assessed = Column(Boolean, default=False)
+    contraindications_checked = Column(Boolean, default=False)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
 
-    # Relationship
-    client: Mapped["Client"] = relationship(back_populates="digital_checklists")
+    # This is the singular relationship that `Client.digital_checklists` back-populates
+    client = relationship("Client", back_populates="digital_checklists") # <-- THIS IS CORRECT (singular 'client')
 
     def __repr__(self):
-        return (f"<DigitalChecklist(id={self.id}, client_id={self.client_id}, "
-                f"date={self.checklist_date}, completed={self.is_completed})>")
+        return f"<DigitalChecklist(id={self.id}, client_id={self.client_id}, date={self.date_filled})>"

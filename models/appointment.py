@@ -1,37 +1,71 @@
-# models/appointment.py
-from sqlalchemy import Integer, String, Date, Time, DECIMAL, ForeignKey, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from models.base_model import BaseModel
+# P1_desktop_app/models/appointment.py
+from sqlalchemy import Column, Integer, String, Date, Time, Float, ForeignKey, Text, Boolean
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base # Assuming Base is defined here or imported
 
-class Appointment(BaseModel):
+# If Base is in a separate file (e.g., models/base.py), import it:
+# from .base import Base
+
+Base = declarative_base() # Or wherever your Base is initialized
+
+class Appointment(Base):
     __tablename__ = 'appointments'
 
-    client_id: Mapped[int] = mapped_column(Integer, ForeignKey('clients.id'), nullable=False)
-    service_id: Mapped[int] = mapped_column(Integer, ForeignKey('services.id'), nullable=True)
-    area_id: Mapped[int] = mapped_column(Integer, ForeignKey('treatment_areas.id'), nullable=True)
-    appointment_date: Mapped[Date] = mapped_column(Date, nullable=False)
-    start_time: Mapped[Time] = mapped_column(Time, nullable=False)
-    end_time: Mapped[Time] = mapped_column(Time, nullable=False)
-    session_number_for_area: Mapped[int] = mapped_column(Integer, nullable=True)
-    power_j_cm3: Mapped[str] = mapped_column(String(50), nullable=True)
-    appointment_status: Mapped[str] = mapped_column(String(50), default='Scheduled')
-    amount: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 2), nullable=True)
-    payment_method_id: Mapped[int] = mapped_column(Integer, ForeignKey('payment_methods.id'), nullable=True)
-    next_suggested_appointment_date: Mapped[Date] = mapped_column(Date, nullable=True)
-    # CHANGE THIS LINE: Reference the table name, not the class name as a string
-    promotion_id: Mapped[int] = mapped_column(Integer, ForeignKey('promotions.id'), nullable=True)
-    hardware_id: Mapped[int] = mapped_column(Integer, ForeignKey('hardware.id'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Client relationship
+    client_id = Column(Integer, ForeignKey('clients.id'), nullable=False) # <--- CHECK THIS LINE
+    client = relationship("Client", backref="appointments")
 
-    # Relationships
-    client: Mapped["Client"] = relationship(back_populates="appointments")
-    service: Mapped["Service"] = relationship(back_populates="appointments")
-    treatment_area: Mapped["TreatmentArea"] = relationship(back_populates="appointments")
-    payment_method: Mapped["PaymentMethod"] = relationship(back_populates="appointments")
-    # CHANGE THIS LINE: Use the string table name "Promotion" for forward reference
-    promotion: Mapped["Promotion"] = relationship("Promotion", back_populates="appointments") # Explicitly define the target
-    hardware: Mapped["Hardware"] = relationship(back_populates="appointments")
+    service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
+    service = relationship("Service", backref="appointments")
+
+    area_id = Column(Integer, ForeignKey('treatment_areas.id'), nullable=True)
+    area = relationship("TreatmentArea", backref="appointments")
+
+    appointment_date = Column(Date, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=True) # End time can be optional
+
+    session_number_for_area = Column(Integer, nullable=True)
+    power_j_cm3 = Column(String(50), nullable=True) # Assuming this is string or float
+    
+    # Status and Payment
+    appointment_status = Column(String(50), default="Scheduled", nullable=False)
+    amount = Column(Float, nullable=False, default=0.0)
+    payment_method_id = Column(Integer, ForeignKey('payment_methods.id'), nullable=True)
+    payment_method = relationship("PaymentMethod", backref="appointments")
+
+    # Optional fields
+    promotion_id = Column(Integer, ForeignKey('promotions.id'), nullable=True) # Assuming a promotions table
+    promotion = relationship("Promotion", backref="appointments")
+
+    hardware_id = Column(Integer, ForeignKey('hardwares.id'), nullable=True) # Assuming a hardwares table
+    hardware = relationship("Hardware", backref="appointments")
+
+    notes = Column(Text, nullable=True)
+    next_suggested_appointment_date = Column(Date, nullable=True)
 
     def __repr__(self):
-        return (f"<Appointment(id={self.id}, client_id={self.client_id}, "
-                f"date={self.appointment_date}, time={self.start_time}-{self.end_time}, "
-                f"status='{self.appointment_status}')>")
+        return f"<Appointment(id={self.id}, client_id={self.client_id}, date={self.appointment_date})>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'service_id': self.service_id,
+            'area_id': self.area_id,
+            'appointment_date': self.appointment_date.isoformat() if self.appointment_date else None,
+            'start_time': str(self.start_time) if self.start_time else None,
+            'end_time': str(self.end_time) if self.end_time else None,
+            'session_number_for_area': self.session_number_for_area,
+            'power_j_cm3': self.power_j_cm3,
+            'appointment_status': self.appointment_status,
+            'amount': self.amount,
+            'payment_method_id': self.payment_method_id,
+            'promotion_id': self.promotion_id,
+            'hardware_id': self.hardware_id,
+            'notes': self.notes,
+            'next_suggested_appointment_date': self.next_suggested_appointment_date.isoformat() if self.next_suggested_appointment_date else None,
+            'client_full_name': self.client.full_name if self.client else None # Example for client's name
+        }

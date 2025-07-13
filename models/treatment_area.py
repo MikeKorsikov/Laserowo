@@ -1,15 +1,22 @@
 # models/treatment_area.py
-from sqlalchemy import String, DECIMAL, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
-from models.base_model import BaseModel
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from config.database import Base
 
-class TreatmentArea(BaseModel):
+class TreatmentArea(Base):
     __tablename__ = 'treatment_areas'
 
-    area_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    default_price: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 2), nullable=True)
-    estimated_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
 
-    # Relationships
-    appointments: Mapped[List["Appointment"]] = relationship(back_populates="treatment_area")
+    # Relationship (if appointments reference areas)
+    appointments = relationship("Appointment", back_populates="area")
+
+    def __repr__(self):
+        return f"<TreatmentArea(id={self.id}, name='{self.name}')>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name
+        }

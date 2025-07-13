@@ -1,200 +1,173 @@
 # controllers/client_controller.py
+from datetime import date, datetime # <--- ADD datetime here
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from datetime import date
 from models.client import Client
-from models.appointment import Appointment # For checking blacklisted status against appointments
-from models.digital_checklist import DigitalChecklist # For linking digital checklist
-from config.database import get_db # To get a session
-from typing import List, Optional
+from sqlalchemy import or_
+from typing import Optional, List, Dict, Any
 
 class ClientController:
-    def __init__(self, db_session: Session):
-        self.db = db_session
+    def __init__(self, db: Session):
+        self.db = db
 
     def create_client(self,
                       full_name: str,
-                      phone_number: Optional[str] = None,
                       email: Optional[str] = None,
+                      phone_number: Optional[str] = None,
+                      gender: Optional[str] = None,
+                      date_of_birth: Optional[date] = None,
+                      notes: Optional[str] = None,
                       facebook_id: Optional[str] = None,
                       instagram_handle: Optional[str] = None,
-                      booksy_indicator: bool = False,
-                      date_of_birth: Optional[date] = None) -> Optional[Client]:
-        """
-        Creates a new client record.
-        Returns the created Client object or None if creation fails.
-        """
-        try:
-            # Basic validation
-            if not full_name:
-                raise ValueError("Full name cannot be empty.")
-            if phone_number and self.db.query(Client).filter_by(phone_number=phone_number).first():
-                raise ValueError(f"Client with phone number {phone_number} already exists.")
-            if email and self.db.query(Client).filter_by(email=email).first():
-                raise ValueError(f"Client with email {email} already exists.")
-
-            new_client = Client(
-                full_name=full_name,
-                phone_number=phone_number,
-                email=email,
-                facebook_id=facebook_id,
-                instagram_handle=instagram_handle,
-                booksy_indicator=booksy_indicator,
-                date_of_birth=date_of_birth,
-                is_active=True,
-                is_blacklisted=False # New clients are not blacklisted by default
+                      booksy_used: bool = False,
+                      is_blacklisted: bool = False,
+                      is_active: bool = True,
+                      excel_id: Optional[str] = None
+                     ) -> Optional[Client]:
+        """Creates a new client."""
+        if not full_name:
+            print("Error: Client full name is required.")
+            return None
+        
+        # Check for existing client to prevent duplicates (using phone/email/excel_id as primary unique fields)
+        existing_client = self.db.query(Client).filter(
+            or_(
+                Client.excel_id == excel_id if excel_id else False,
+                Client.phone_number == phone_number if phone_number else False,
+                Client.email == email if email else False
             )
+        ).first()
+
+        if existing_client:
+            print(f"Warning: Client '{full_name}' (Email: {email}, Phone: {phone_number}) already exists with ID {existing_client.id}. Skipping creation.")
+            return existing_client
+
+        new_client = Client(
+            full_name=full_name,
+            email=email,
+            phone_number=phone_number,
+            gender=gender,
+            date_of_birth=date_of_birth,
+            notes=notes,
+            facebook_id=facebook_id,
+            instagram_handle=instagram_handle,
+            booksy_used=booksy_used,
+            is_blacklisted=is_blacklisted,
+            is_active=is_active,
+            excel_id=excel_id
+        )
+        try:
             self.db.add(new_client)
             self.db.commit()
             self.db.refresh(new_client)
+            print(f"Client created: ID {new_client.id}, Name: {new_client.full_name}")
             return new_client
-        except ValueError as e:
-            print(f"Error creating client: {e}")
-            self.db.rollback()
-            return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
             self.db.rollback()
+            print(f"Error creating client '{full_name}': {e}")
             return None
 
-    def get_client(self, client_id: int) -> Optional[Client]:
+    def get_client_by_id(self, client_id: int) -> Optional[Client]:
         """Retrieves a client by their ID."""
         return self.db.query(Client).get(client_id)
 
-    def get_all_clients(self, include_inactive: bool = False) -> List[Client]:
-        """Retrieves all active clients, optionally including inactive ones."""
-        query = self.db.query(Client)
-        if not include_inactive:
-            query = query.filter(Client.is_active == True)
-        return query.order_by(Client.full_name).all()
+    def get_client_by_name(self, full_name: str) -> Optional[Client]:
+        """Retrieves a client by their full name (case-insensitive match)."""
+        return self.db.query(Client).filter(Client.full_name.ilike(full_name)).first()
 
-    def search_clients(self, query_string: str) -> List[Client]:
+    def get_client_by_excel_id(self, excel_id: str) -> Optional[Client]:
+        """Retrieves a client by their external Excel ID."""
+        return self.db.query(Client).filter(Client.excel_id == excel_id).first()
+
+    def get_client_by_phone_or_email_or_name(self, phone_number: Optional[str] = None, 
+                                              email: Optional[str] = None, 
+                                              full_name: Optional[str] = None) -> Optional[Client]:
         """
-        Searches clients by full name, phone number, or email.
+        Retrieves a client by phone number, email, or full name. 
+        Prioritizes phone, then email, then name.
         """
-        search_pattern = f"%{query_string}%"
-        return self.db.query(Client).filter(
+        query = self.db.query(Client)
+        filters = []
+        if phone_number:
+            filters.append(Client.phone_number == phone_number)
+        if email:
+            filters.append(Client.email == email)
+        if full_name:
+            filters.append(Client.full_name.ilike(full_name))
+
+        if filters:
+            return query.filter(or_(*filters)).first()
+        return None
+    
+    def search_clients(self, search_term: str) -> List[Dict[str, Any]]:
+        """
+        Searches for clients by full name, email, or phone number (case-insensitive).
+        Returns clients as dictionaries.
+        """
+        search_pattern = f"%{search_term}%" # For LIKE queries
+
+        clients = self.db.query(Client).filter(
             or_(
                 Client.full_name.ilike(search_pattern),
-                Client.phone_number.ilike(search_pattern),
-                Client.email.ilike(search_pattern)
+                Client.email.ilike(search_pattern),
+                Client.phone_number.ilike(search_pattern)
             )
         ).all()
+        return [client.to_dict() for client in clients]
 
-    def update_client(self, client_id: int, **kwargs) -> Optional[Client]:
-        """
-        Updates an existing client's details.
-        Kwargs can include: full_name, phone_number, email, facebook_id, instagram_handle,
-                          booksy_indicator, date_of_birth, is_blacklisted, is_active.
-        """
-        client = self.get_client(client_id)
+
+    def get_all_clients_raw(self) -> List[Client]:
+        """Retrieves all client ORM objects directly."""
+        return self.db.query(Client).all()
+
+    def get_all_clients(self) -> List[Dict[str, Any]]:
+        """Retrieves all clients as dictionaries."""
+        clients = self.db.query(Client).all()
+        return [client.to_dict() for client in clients]
+
+    def update_client(self, client_id: int, updates: Dict[str, Any]) -> Optional[Client]:
+        """Updates an existing client."""
+        client = self.get_client_by_id(client_id)
         if not client:
             print(f"Client with ID {client_id} not found.")
             return None
+        
+        # Handle date_of_birth string to date conversion if present in updates
+        if 'date_of_birth' in updates:
+            dob_value = updates['date_of_birth']
+            if isinstance(dob_value, str):
+                try:
+                    updates['date_of_birth'] = datetime.strptime(dob_value, '%Y-%m-%d').date()
+                except ValueError:
+                    print(f"Warning: Could not parse date_of_birth '{dob_value}'. Skipping update for this field.")
+                    updates.pop('date_of_birth')
 
+        for key, value in updates.items():
+            if hasattr(client, key):
+                setattr(client, key, value)
+            else:
+                print(f"Warning: Attempted to set non-existent field '{key}' on Client model for ID {client_id}.")
         try:
-            for key, value in kwargs.items():
-                if hasattr(client, key):
-                    setattr(client, key, value)
-                else:
-                    print(f"Warning: Attempted to update non-existent field '{key}' for client.")
-
-            # Specific validation for unique fields during update
-            if 'phone_number' in kwargs and kwargs['phone_number'] is not None:
-                existing_client = self.db.query(Client).filter(Client.phone_number == kwargs['phone_number'], Client.id != client_id).first()
-                if existing_client:
-                    raise ValueError(f"Phone number {kwargs['phone_number']} is already in use by another client.")
-            if 'email' in kwargs and kwargs['email'] is not None:
-                existing_client = self.db.query(Client).filter(Client.email == kwargs['email'], Client.id != client_id).first()
-                if existing_client:
-                    raise ValueError(f"Email {kwargs['email']} is already in use by another client.")
-
             self.db.commit()
             self.db.refresh(client)
+            print(f"Client {client_id} updated.")
             return client
-        except ValueError as e:
-            print(f"Error updating client: {e}")
-            self.db.rollback()
-            return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
             self.db.rollback()
+            print(f"Error updating client {client_id}: {e}")
             return None
 
-    def deactivate_client(self, client_id: int) -> bool:
-        """
-        Deactivates a client, retaining their history.
-        Prevents new appointments but keeps historical data.
-        """
-        client = self.get_client(client_id)
-        if client:
-            try:
-                client.is_active = False
-                self.db.commit()
-                return True
-            except Exception as e:
-                print(f"Error deactivating client {client_id}: {e}")
-                self.db.rollback()
-                return False
-        return False
-
-    def blacklist_client(self, client_id: int, blacklist: bool = True) -> bool:
-        """
-        Sets or unsets the 'blacklist' flag for a client.
-        """
-        client = self.get_client(client_id)
-        if client:
-            try:
-                client.is_blacklisted = blacklist
-                self.db.commit()
-                return True
-            except Exception as e:
-                print(f"Error blacklisting client {client_id}: {e}")
-                self.db.rollback()
-                return False
-        return False
-
-    def get_client_history(self, client_id: int) -> List[Appointment]:
-        """
-        Retrieves all appointments for a given client, ordered by date.
-        """
-        client = self.get_client(client_id)
+    def delete_client(self, client_id: int) -> bool:
+        """Deletes a client by ID."""
+        client = self.get_client_by_id(client_id)
         if not client:
-            return []
-        return self.db.query(Appointment).filter(Appointment.client_id == client_id).order_by(Appointment.appointment_date, Appointment.start_time).all()
-
-    def add_digital_checklist(self, client_id: int, allergies: Optional[str] = None,
-                              health_issues: Optional[str] = None, medications: Optional[str] = None,
-                              other_notes: Optional[str] = None) -> Optional[DigitalChecklist]:
-        """
-        Adds a digital checklist entry for a client.
-        """
-        client = self.get_client(client_id)
-        if not client:
-            print(f"Client with ID {client_id} not found for checklist.")
-            return None
+            print(f"Client with ID {client_id} not found for deletion.")
+            return False
         try:
-            new_checklist = DigitalChecklist(
-                client_id=client_id,
-                checklist_date=date.today(),
-                allergies=allergies,
-                health_issues=health_issues,
-                medications=medications,
-                other_notes=other_notes,
-                is_completed=True
-            )
-            self.db.add(new_checklist)
+            self.db.delete(client)
             self.db.commit()
-            self.db.refresh(new_checklist)
-            return new_checklist
+            print(f"Client {client_id} deleted successfully.")
+            return True
         except Exception as e:
-            print(f"Error adding digital checklist for client {client_id}: {e}")
             self.db.rollback()
-            return None
-
-    def get_digital_checklist(self, client_id: int) -> Optional[DigitalChecklist]:
-        """
-        Retrieves the most recent digital checklist for a client.
-        Assuming one-off, so just get the latest if multiple somehow exist.
-        """
-        return self.db.query(DigitalChecklist).filter(DigitalChecklist.client_id == client_id).order_by(DigitalChecklist.checklist_date.desc()).first()
+            print(f"Error deleting client {client_id}: {e}")
+            return False

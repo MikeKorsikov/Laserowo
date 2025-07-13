@@ -1,18 +1,20 @@
-# models/service.py
-from sqlalchemy import String, Boolean, DECIMAL, Integer, Text # Add Text here
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List # Ensure List is imported
-from models.base_model import BaseModel
+# P1_desktop_app/models/service.py
+from sqlalchemy import Column, Integer, String, Text
+# from config.database import Base # DELETE THIS LINE
+from .base import Base # <--- ADD THIS LINE
 
-class Service(BaseModel):
+class Service(Base):
     __tablename__ = 'services'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
 
-    service_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    description: Mapped[str] = mapped_column(Text, nullable=True) # Text will now be recognized
-    default_price: Mapped[DECIMAL] = mapped_column(DECIMAL(10, 2), nullable=True)
-    estimated_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    def __repr__(self):
+        return f"<Service(id={self.id}, name='{self.name}')>"
 
-    # Relationships
-    appointments: Mapped[List["Appointment"]] = relationship(back_populates="service")
-    # treatment_protocols: Mapped[List["TreatmentProtocol"]] = relationship(back_populates="service") # If you implement protocols per service
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description
+        }

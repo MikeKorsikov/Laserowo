@@ -1,234 +1,252 @@
 # views/client_view.py
 import customtkinter as ctk
-from datetime import date, datetime
-from typing import Callable, List, Optional, Dict, Any # Add List, Optional, Dict, Any here
-
+from datetime import datetime
+from tkinter import messagebox
 
 class ClientView(ctk.CTkFrame):
-    def __init__(self, master, controller_callback: Callable, **kwargs):
-        super().__init__(master, **kwargs)
+    def __init__(self, parent, client_controller):
+        super().__init__(parent)
+        self.client_controller = client_controller
         self.grid_columnconfigure(0, weight=1)
-        self.controller_callback = controller_callback # This will be a method in the main controller
+        self.grid_rowconfigure(1, weight=1) # Row for client list
 
         self.create_widgets()
-        self.load_clients() # Load clients when the view is initialized
+        self.load_clients()
+        self.selected_client_data = None # To store the currently selected client's data
 
     def create_widgets(self):
-        # Client List Section
-        self.client_list_frame = ctk.CTkFrame(self)
-        self.client_list_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        self.client_list_frame.grid_columnconfigure(0, weight=1)
+        # Current Clients Section
+        self.current_clients_frame = ctk.CTkFrame(self)
+        self.current_clients_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
+        self.current_clients_frame.grid_columnconfigure(0, weight=1)
+        self.current_clients_frame.grid_rowconfigure(2, weight=1) # Row for scrollable frame
 
-        self.client_list_label = ctk.CTkLabel(self.client_list_frame, text="Current Clients", font=ctk.CTkFont(size=16, weight="bold"))
-        self.client_list_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        self.search_entry = ctk.CTkEntry(self.current_clients_frame, placeholder_text="Search clients...")
+        self.search_entry.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        self.search_button = ctk.CTkButton(self.current_clients_frame, text="Search", command=self.search_clients)
+        self.search_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
 
-        self.client_search_entry = ctk.CTkEntry(self.client_list_frame, placeholder_text="Search clients...")
-        self.client_search_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        self.client_search_entry.bind("<Return>", self.search_clients) # Bind Enter key
-        self.search_button = ctk.CTkButton(self.client_list_frame, text="Search", command=self.search_clients)
-        self.search_button.grid(row=1, column=1, padx=10, pady=5)
+        self.client_list_scroll_frame = ctk.CTkScrollableFrame(self.current_clients_frame)
+        self.client_list_scroll_frame.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+        self.client_list_scroll_frame.grid_columnconfigure(0, weight=1)
 
+        # Client Details Section
+        self.client_details_frame = ctk.CTkFrame(self)
+        self.client_details_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        self.grid_columnconfigure(1, weight=2) # Make details section wider
 
-        self.client_listbox = ctk.CTkScrollableFrame(self.client_list_frame, height=200)
-        self.client_listbox.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        self.details_label = ctk.CTkLabel(self.client_details_frame, text="Client Details", font=ctk.CTkFont(size=16, weight="bold"))
+        self.details_label.grid(row=0, column=0, columnspan=2, pady=(10, 20))
 
-        # Client Details/Form Section
-        self.client_form_frame = ctk.CTkFrame(self)
-        self.client_form_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        self.client_form_frame.grid_columnconfigure((0,1), weight=1)
-
-        self.form_label = ctk.CTkLabel(self.client_form_frame, text="Client Details", font=ctk.CTkFont(size=16, weight="bold"))
-        self.form_label.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
-
-        labels = ["Full Name:", "Phone:", "Email:", "Facebook ID:", "Instagram Handle:", "Date of Birth (YYYY-MM-DD):"]
+        # Using a dictionary to manage entries for easier access and iteration
         self.entries = {}
-        for i, text in enumerate(labels):
-            ctk.CTkLabel(self.client_form_frame, text=text).grid(row=i+1, column=0, padx=5, pady=2, sticky="w")
-            entry = ctk.CTkEntry(self.client_form_frame)
+        fields = [
+            ("Full Name:", "full_name"),
+            ("Phone:", "phone_number"),
+            ("Email:", "email"),
+            ("Facebook ID:", "facebook_id"),
+            ("Instagram Handle:", "instagram_handle"),
+            ("Date of Birth (YYYY-MM-DD):", "date_of_birth")
+        ]
+
+        for i, (label_text, key) in enumerate(fields):
+            label = ctk.CTkLabel(self.client_details_frame, text=label_text)
+            label.grid(row=i+1, column=0, padx=5, pady=2, sticky="w")
+            entry = ctk.CTkEntry(self.client_details_frame)
             entry.grid(row=i+1, column=1, padx=5, pady=2, sticky="ew")
-            self.entries[text.replace(":", "").replace(" ", "_").lower()] = entry # Store references to entries
+            self.entries[key] = entry # Store entry widgets in the dictionary
 
-        self.blacklist_checkbox = ctk.CTkCheckBox(self.client_form_frame, text="Blacklisted")
-        self.blacklist_checkbox.grid(row=len(labels)+1, column=0, padx=5, pady=5, sticky="w")
+        # Checkboxes
+        self.booksy_used_checkbox = ctk.CTkCheckBox(self.client_details_frame, text="Booksy Used")
+        self.booksy_used_checkbox.grid(row=len(fields)+1, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        self.blacklisted_checkbox = ctk.CTkCheckBox(self.client_details_frame, text="Blacklisted")
+        self.blacklisted_checkbox.grid(row=len(fields)+2, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        self.active_client_checkbox = ctk.CTkCheckBox(self.client_details_frame, text="Active Client")
+        self.active_client_checkbox.grid(row=len(fields)+3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        self.active_client_checkbox.select() # Default to active
 
-        self.active_checkbox = ctk.CTkCheckBox(self.client_form_frame, text="Active Client")
-        self.active_checkbox.grid(row=len(labels)+1, column=1, padx=5, pady=5, sticky="w")
-        self.active_checkbox.select() # Default to active
+        # Buttons
+        self.add_button = ctk.CTkButton(self.client_details_frame, text="Add Client", command=self.add_client)
+        self.add_button.grid(row=len(fields)+4, column=0, padx=5, pady=10, sticky="ew")
+        self.update_button = ctk.CTkButton(self.client_details_frame, text="Update Client", command=self.update_client)
+        self.update_button.grid(row=len(fields)+4, column=1, padx=5, pady=10, sticky="ew")
+        self.delete_button = ctk.CTkButton(self.client_details_frame, text="Delete Client", command=self.delete_client, fg_color="red", hover_color="darkred")
+        self.delete_button.grid(row=len(fields)+5, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
 
-        self.add_button = ctk.CTkButton(self.client_form_frame, text="Add Client", command=self.add_client)
-        self.add_button.grid(row=len(labels)+2, column=0, padx=10, pady=10, sticky="ew")
+        # Selected Client History Section
+        self.history_frame = ctk.CTkFrame(self)
+        self.history_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+        self.history_label = ctk.CTkLabel(self.history_frame, text="Selected Client History", font=ctk.CTkFont(size=14, weight="bold"))
+        self.history_label.pack(padx=10, pady=10)
+        self.history_text = ctk.CTkLabel(self.history_frame, text="Select a client to view their history.") # Placeholder
+        self.history_text.pack(padx=10, pady=10)
 
-        self.update_button = ctk.CTkButton(self.client_form_frame, text="Update Client", command=self.update_client)
-        self.update_button.grid(row=len(labels)+2, column=1, padx=10, pady=10, sticky="ew")
-        self.update_button.configure(state="disabled") # Disable until a client is selected
 
-        # Client details display area (for history)
-        self.details_frame = ctk.CTkFrame(self)
-        self.details_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
-        self.details_frame.grid_columnconfigure(0, weight=1)
+    def load_clients(self):
+        # Clear existing buttons
+        for widget in self.client_list_scroll_frame.winfo_children():
+            widget.destroy()
 
-        self.details_label = ctk.CTkLabel(self.details_frame, text="Selected Client History", font=ctk.CTkFont(size=14, weight="bold"))
-        self.details_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        clients = self.client_controller.get_all_clients()
+        for i, client_data in enumerate(clients):
+            # Using client_data (dictionary) directly in lambda
+            client_button = ctk.CTkButton(
+                self.client_list_scroll_frame,
+                text=client_data.get('full_name', 'Unknown Client'),
+                command=lambda c=client_data: self.display_client(c)
+            )
+            client_button.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
-        self.history_textbox = ctk.CTkTextbox(self.details_frame, wrap="word", height=150)
-        self.history_textbox.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.history_textbox.insert("end", "Select a client to view their history.")
-        self.history_textbox.configure(state="disabled")
+    def display_client(self, client_data):
+        """Displays the selected client's data in the details section."""
+        self.selected_client_data = client_data # Store the full client data
 
-        self.selected_client_id = None
+        # Clear existing entries
+        for key in self.entries:
+            self.entries[key].delete(0, ctk.END) # Use ctk.END
 
-    def load_clients(self, clients: Optional[List[Dict]] = None):
-        """Loads or reloads the client list in the UI."""
-        for widget in self.client_listbox.winfo_children():
-            widget.destroy() # Clear existing client buttons
+        # Populate entries
+        for key, entry_widget in self.entries.items():
+            value = client_data.get(key)
+            if value is not None: # Only insert if value is not None
+                if key == 'date_of_birth' and isinstance(value, str):
+                    # Format date for display if it's a string from DB (e.g., 'YYYY-MM-DD')
+                    entry_widget.insert(0, value)
+                else:
+                    entry_widget.insert(0, str(value))
+            
+        # Set checkboxes
+        self.booksy_used_checkbox.select() if client_data.get('booksy_used') else self.booksy_used_checkbox.deselect()
+        self.blacklisted_checkbox.select() if client_data.get('is_blacklisted') else self.blacklisted_checkbox.deselect()
+        self.active_client_checkbox.select() if client_data.get('is_active') else self.active_client_checkbox.deselect()
 
-        if clients is None:
-            clients = self.controller_callback("get_all_clients")
+        # Update history label
+        client_id = client_data.get('id', 'N/A')
+        client_name = client_data.get('full_name', 'Unknown')
+        self.history_text.configure(text=f"History for {client_name} (ID: {client_id})\nTODO: Load actual appointment history here.")
 
-        if not clients:
-            ctk.CTkLabel(self.client_listbox, text="No clients found.").pack(pady=5)
-            return
 
-        for client in clients:
-            client_button = ctk.CTkButton(self.client_listbox,
-                                         text=client['full_name'],
-                                         command=lambda c=client: self.display_client(c))
-            client_button.pack(fill="x", padx=5, pady=2)
-
-    def search_clients(self, event=None):
-        query = self.client_search_entry.get()
-        if query:
-            results = self.controller_callback("search_clients", query_string=query)
-            self.load_clients(results)
+    def search_clients(self):
+        search_term = self.search_entry.get()
+        if search_term:
+            filtered_clients = self.client_controller.search_clients(search_term) # Assuming this method exists
         else:
-            self.load_clients() # Reload all if search is empty
+            filtered_clients = self.client_controller.get_all_clients()
 
-    def display_client(self, client_data: Dict[str, Any]):
-        """Displays selected client's data in the form and history."""
-        self.selected_client_id = client_data['id']
-        self.entries['full_name'].delete(0, "end")
-        self.entries['full_name'].insert(0, client_data.get('full_name', ''))
-        self.entries['phone_number'].delete(0, "end")
-        self.entries['phone_number'].insert(0, client_data.get('phone_number', ''))
-        self.entries['email'].delete(0, "end")
-        self.entries['email'].insert(0, client_data.get('email', ''))
-        self.entries['facebook_id'].delete(0, "end")
-        self.entries['facebook_id'].insert(0, client_data.get('facebook_id', ''))
-        self.entries['instagram_handle'].delete(0, "end")
-        self.entries['instagram_handle'].insert(0, client_data.get('instagram_handle', ''))
-        dob = client_data.get('date_of_birth')
-        self.entries['date_of_birth_(yyyy-mm-dd)'].delete(0, "end")
-        if dob:
-            self.entries['date_of_birth_(yyyy-mm-dd)'].insert(0, dob.strftime("%Y-%m-%d") if isinstance(dob, date) else str(dob))
+        # Clear existing buttons
+        for widget in self.client_list_scroll_frame.winfo_children():
+            widget.destroy()
 
-        if client_data.get('is_blacklisted'):
-            self.blacklist_checkbox.select()
-        else:
-            self.blacklist_checkbox.deselect()
-
-        if client_data.get('is_active'):
-            self.active_checkbox.select()
-        else:
-            self.active_checkbox.deselect()
-
-        self.update_button.configure(state="normal")
-        self.add_button.configure(state="disabled") # Cannot add if one is selected for editing
-
-        # Load and display client history
-        self.history_textbox.configure(state="normal")
-        self.history_textbox.delete("1.0", "end")
-        history = self.controller_callback("get_client_history", client_id=self.selected_client_id)
-        if history:
-            self.history_textbox.insert("end", "Appointments History:\n")
-            for appt in history:
-                service_name = appt.service.service_name if appt.service else "N/A"
-                area_name = appt.treatment_area.area_name if appt.treatment_area else "N/A"
-                self.history_textbox.insert("end", f"- {appt.appointment_date} {appt.start_time}: {service_name} ({area_name}), Session {appt.session_number_for_area}, Status: {appt.appointment_status}\n")
-        else:
-            self.history_textbox.insert("end", "No appointment history found for this client.")
-        self.history_textbox.configure(state="disabled")
+        for i, client_data in enumerate(filtered_clients):
+            client_button = ctk.CTkButton(
+                self.client_list_scroll_frame,
+                text=client_data.get('full_name', 'Unknown Client'),
+                command=lambda c=client_data: self.display_client(c)
+            )
+            client_button.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
 
     def add_client(self):
         full_name = self.entries['full_name'].get()
-        phone = self.entries['phone_number'].get()
-        email = self.entries['email'].get()
-        facebook_id = self.entries['facebook_id'].get()
-        instagram_handle = self.entries['instagram_handle'].get()
-        dob_str = self.entries['date_of_birth_(yyyy-mm-dd)'].get()
-        is_blacklisted = self.blacklist_checkbox.get() == 1
-        is_active = self.active_checkbox.get() == 1
-
-        dob = None
-        if dob_str:
-            try:
-                dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
-            except ValueError:
-                ctk.CTkMessagebox.showerror("Input Error", "Invalid Date of Birth format. Use YYYY-MM-DD.")
-                return
-
-        client_data = {
-            "full_name": full_name,
-            "phone_number": phone if phone else None,
-            "email": email if email else None,
-            "facebook_id": facebook_id if facebook_id else None,
-            "instagram_handle": instagram_handle if instagram_handle else None,
-            "booksy_indicator": False, # Assuming manual add doesn't set this via Booksy
-            "date_of_birth": dob,
-            "is_blacklisted": is_blacklisted,
-            "is_active": is_active
-        }
-
-        created_client = self.controller_callback("create_client", **client_data)
-        if created_client:
-            ctk.CTkMessagebox.showinfo("Success", f"Client '{created_client.full_name}' added.")
-            self.clear_form()
-            self.load_clients()
-        else:
-            ctk.CTkMessagebox.showerror("Error", "Failed to add client. Check inputs.")
-
-
-    def update_client(self):
-        if not self.selected_client_id:
-            ctk.CTkMessagebox.show_warning("No Client Selected", "Please select a client to update.")
+        if not full_name:
+            messagebox.showerror("Error", "Full Name is required.")
             return
 
-        updates = {}
-        updates['full_name'] = self.entries['full_name'].get()
-        updates['phone_number'] = self.entries['phone_number'].get() or None
-        updates['email'] = self.entries['email'].get() or None
-        updates['facebook_id'] = self.entries['facebook_id'].get() or None
-        updates['instagram_handle'] = self.entries['instagram_handle'].get() or None
-        dob_str = self.entries['date_of_birth_(yyyy-mm-dd)'].get()
+        client_data = {
+            'full_name': full_name,
+            'phone_number': self.entries['phone_number'].get() or None,
+            'email': self.entries['email'].get() or None,
+            'facebook_id': self.entries['facebook_id'].get() or None,
+            'instagram_handle': self.entries['instagram_handle'].get() or None,
+            'booksy_used': self.booksy_used_checkbox.get() == 1,
+            'is_blacklisted': self.blacklisted_checkbox.get() == 1,
+            'is_active': self.active_client_checkbox.get() == 1
+        }
+        
+        dob_str = self.entries['date_of_birth'].get()
         if dob_str:
             try:
-                updates['date_of_birth'] = datetime.strptime(dob_str, "%Y-%m-%d").date()
+                client_data['date_of_birth'] = datetime.strptime(dob_str, '%Y-%m-%d').date()
             except ValueError:
-                ctk.CTkMessagebox.showerror("Input Error", "Invalid Date of Birth format. Use YYYY-MM-DD.")
+                messagebox.showerror("Error", "Invalid Date of Birth format. Use YYYY-MM-DD.")
                 return
         else:
-            updates['date_of_birth'] = None
+            client_data['date_of_birth'] = None
 
-        updates['is_blacklisted'] = self.blacklist_checkbox.get() == 1
-        updates['is_active'] = self.active_checkbox.get() == 1
 
-        updated_client = self.controller_callback("update_client", client_id=self.selected_client_id, **updates)
-        if updated_client:
-            ctk.CTkMessagebox.showinfo("Success", f"Client '{updated_client.full_name}' updated.")
-            self.clear_form()
-            self.load_clients()
+        new_client = self.client_controller.create_client(**client_data)
+        if new_client:
+            messagebox.showinfo("Success", f"Client '{new_client.full_name}' added.")
+            self.load_clients() # Refresh the list
+            self.clear_fields() # Clear the entry fields
         else:
-            ctk.CTkMessagebox.showerror("Error", "Failed to update client. Check inputs.")
+            messagebox.showerror("Error", "Failed to add client. Check logs for details.")
 
-    def clear_form(self):
-        for entry in self.entries.values():
-            entry.delete(0, "end")
-        self.blacklist_checkbox.deselect()
-        self.active_checkbox.select()
-        self.selected_client_id = None
-        self.update_button.configure(state="disabled")
-        self.add_button.configure(state="normal")
-        self.history_textbox.configure(state="normal")
-        self.history_textbox.delete("1.0", "end")
-        self.history_textbox.insert("end", "Select a client to view their history.")
-        self.history_textbox.configure(state="disabled")
+    def update_client(self):
+        if not self.selected_client_data:
+            messagebox.showwarning("Warning", "No client selected to update.")
+            return
+
+        client_id = self.selected_client_data.get('id')
+        updates = {}
+
+        # Collect updates from entries
+        for key, entry_widget in self.entries.items():
+            current_value = entry_widget.get() or None
+            # Only add to updates if the value has changed or it's a field that needs explicit update
+            if current_value != (self.selected_client_data.get(key) or None):
+                updates[key] = current_value
+
+        # Handle date_of_birth separately for conversion
+        dob_str = self.entries['date_of_birth'].get()
+        if dob_str:
+            try:
+                updates['date_of_birth'] = datetime.strptime(dob_str, '%Y-%m-%d').date()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid Date of Birth format. Use YYYY-MM-DD.")
+                return
+        else:
+            updates['date_of_birth'] = None # Allow setting to None
+
+        # Collect updates from checkboxes
+        updates['booksy_used'] = self.booksy_used_checkbox.get() == 1
+        updates['is_blacklisted'] = self.blacklisted_checkbox.get() == 1
+        updates['is_active'] = self.active_client_checkbox.get() == 1
+
+        updated_client = self.client_controller.update_client(client_id, updates)
+        if updated_client:
+            messagebox.showinfo("Success", f"Client '{updated_client.full_name}' updated.")
+            self.load_clients() # Refresh the list
+            # Re-display the updated client data to reflect changes
+            self.display_client(updated_client.to_dict()) # Convert ORM object back to dict for display
+        else:
+            messagebox.showerror("Error", "Failed to update client. Check logs for details.")
+
+    def delete_client(self):
+        if not self.selected_client_data:
+            messagebox.showwarning("Warning", "No client selected to delete.")
+            return
+
+        client_id = self.selected_client_data.get('id')
+        client_name = self.selected_client_data.get('full_name')
+
+        if messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete client '{client_name}' (ID: {client_id})?"):
+            if self.client_controller.delete_client(client_id):
+                messagebox.showinfo("Success", f"Client '{client_name}' deleted.")
+                self.load_clients() # Refresh the list
+                self.clear_fields() # Clear the form
+            else:
+                messagebox.showerror("Error", "Failed to delete client. Check logs for details.")
+
+    def clear_fields(self):
+        """Clears all entry fields and resets checkboxes."""
+        for key in self.entries:
+            self.entries[key].delete(0, ctk.END)
+        
+        self.booksy_used_checkbox.deselect()
+        self.blacklisted_checkbox.deselect()
+        self.active_client_checkbox.select() # Default to active
+        self.selected_client_data = None # Clear selected client
+
+        self.history_text.configure(text="Select a client to view their history.")
+        

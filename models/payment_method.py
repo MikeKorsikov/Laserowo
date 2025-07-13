@@ -1,18 +1,22 @@
 # models/payment_method.py
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from models.base_model import BaseModel
-from typing import List
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from config.database import Base
 
-class PaymentMethod(BaseModel):
+class PaymentMethod(Base):
     __tablename__ = 'payment_methods'
 
-    method_name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
 
-    # Relationships
-    appointments: Mapped[List["Appointment"]] = relationship("Appointment", back_populates="payment_method")
-    # Add the relationship to expenses
-    expenses: Mapped[List["Expense"]] = relationship("Expense", back_populates="payment_method")
+    # Relationship (if appointments reference payment methods)
+    appointments = relationship("Appointment", back_populates="payment_method")
 
     def __repr__(self):
-        return f"<PaymentMethod(id={self.id}, name='{self.method_name}')>"
+        return f"<PaymentMethod(id={self.id}, name='{self.name}')>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name
+        }
