@@ -3,7 +3,7 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import ttk
 import ttkbootstrap as tb # Using ttkbootstrap for styling
-from config.settings import APP_NAME, WINDOW_SIZE # Use APP_NAME for consistency
+
 from config.database import init_db, get_db
 from controllers.client_controller import ClientController
 from controllers.appointment_controller import AppointmentController
@@ -18,11 +18,12 @@ from views.appointment_view import AppointmentView
 from controllers.finance_controller import FinanceController
 from controllers.hardware_controller import HardwareController
 from controllers.reporting_controller import ReportingController
-# from views.finance_view import FinanceView
-# from views.hardware_view import HardwareView
-# from views.report_view import ReportView
-# from views.service_view import ServiceView
-# from views.settings_view import SettingsView
+from config.settings import settings
+
+# Then, use settings.APP_NAME and settings.WINDOW_SIZE
+# For example:
+app_name = settings.APP_NAME
+window_size = settings.WINDOW_SIZE
 
 class App(ctk.CTk): # Changed to inherit from ctk.CTk
     def __init__(self):

@@ -1,8 +1,11 @@
 # controllers/client_controller.py
 from sqlalchemy.orm import Session
-from models.client import Client 
+from sqlalchemy import or_ # Import or_ for combining filters
+from models.client import Client
 from typing import Optional, List, Dict, Any, Union
-from datetime import date 
+from datetime import date, datetime # Import datetime for date parsing
+
+import traceback # For detailed error logging
 
 class ClientController:
     def __init__(self, db: Session):
@@ -19,29 +22,16 @@ class ClientController:
                       is_blacklisted: bool = False,
                       is_active: bool = True,
                       notes: Optional[str] = None,
-                      excel_id: Optional[str] = None # Added excel_id
+                      excel_id: Optional[str] = None
                       ) -> Optional[Client]:
         """
         Creates a new client in the database.
-        Checks for existing clients by phone, email, or excel_id to prevent duplicates.
+        This method is typically called by get_or_create_client if no existing client is found.
+        It does NOT perform duplicate checks itself to avoid redundant lookups.
         """
         if not full_name:
-            print("Error: Client full name cannot be empty.")
+            print("Error: Client full name cannot be empty for creation.")
             return None
-
-        # Check for existing client by unique identifiers
-        # Prioritize excel_id, then phone, then email
-        existing_client = None
-        if excel_id:
-            existing_client = self.get_client_by_excel_id(excel_id)
-        if not existing_client and phone_number:
-            existing_client = self.get_client_by_phone_number(phone_number)
-        if not existing_client and email:
-            existing_client = self.get_client_by_email(email)
-
-        if existing_client:
-            print(f"Warning: Client with similar details (excel_id: {excel_id}, phone: {phone_number}, email: {email}) already exists (ID: {existing_client.id}, Name: {existing_client.full_name}). Skipping creation.")
-            return existing_client # Return existing client if found
 
         new_client = Client(
             full_name=full_name,
@@ -54,7 +44,7 @@ class ClientController:
             is_blacklisted=is_blacklisted,
             is_active=is_active,
             notes=notes,
-            excel_id=excel_id # Assign excel_id
+            excel_id=excel_id
         )
         try:
             self.db.add(new_client)
@@ -65,6 +55,7 @@ class ClientController:
         except Exception as e:
             self.db.rollback()
             print(f"Error creating client '{full_name}': {e}")
+            traceback.print_exc() # Print full traceback for detailed debugging
             return None
 
     def get_client_by_id(self, client_id: int) -> Optional[Client]:
@@ -73,54 +64,123 @@ class ClientController:
 
     def get_client_by_phone_number(self, phone_number: str) -> Optional[Client]:
         """Retrieves a client by their phone number."""
-        if not phone_number: return None
+        if not phone_number:
+            return None
         return self.db.query(Client).filter(Client.phone_number == phone_number).first()
 
     def get_client_by_email(self, email: str) -> Optional[Client]:
         """Retrieves a client by their email address."""
-        if not email: return None
+        if not email:
+            return None
         return self.db.query(Client).filter(Client.email == email).first()
 
     def get_client_by_excel_id(self, excel_id: str) -> Optional[Client]:
         """Retrieves a client by their Excel import ID."""
-        if not excel_id: return None
+        if not excel_id:
+            return None
         return self.db.query(Client).filter(Client.excel_id == excel_id).first()
 
     def get_client_by_name(self, full_name: str) -> Optional[Client]:
         """Retrieves a client by their full name (case-insensitive search)."""
-        if not full_name: return None
-        return self.db.query(Client).filter(Client.full_name.ilike(full_name)).first() # ilike for case-insensitive
+        if not full_name:
+            return None
+        # Using .ilike() for case-insensitive contains, assuming full_name might not be exact
+        return self.db.query(Client).filter(Client.full_name.ilike(full_name)).first()
 
-    def get_client_by_phone_or_email_or_name(self,
-                                              phone_number: Optional[str] = None,
-                                              email: Optional[str] = None,
-                                              full_name: Optional[str] = None) -> Optional[Client]:
+    def get_or_create_client(self, **client_data: Any) -> Optional[Client]:
         """
-        Retrieves a client by phone number, email, or full name.
-        Prioritizes phone, then email, then name.
+        Retrieves a client by available identifying data (excel_id, phone, email, full_name)
+        or creates a new client if no match is found.
+        Prioritizes excel_id, then phone_number, then email, then attempts to create using full_name.
         """
+        excel_id = client_data.get('excel_id')
+        phone_number = client_data.get('phone_number')
+        email = client_data.get('email')
+        full_name = client_data.get('full_name') # full_name is required for creation if no match
+
+        client = None
+
+        # 1. Try to find by Excel ID (most reliable for imports)
+        if excel_id:
+            client = self.get_client_by_excel_id(excel_id)
+            if client:
+                print(f"Found client by Excel ID '{excel_id}': {client.full_name}")
+                return client
+
+        # 2. Try to find by phone number
         if phone_number:
             client = self.get_client_by_phone_number(phone_number)
-            if client: return client
+            if client:
+                print(f"Found client by phone number '{phone_number}': {client.full_name}")
+                # If found by phone, but had an excel_id that didn't match an existing client,
+                # you might want to update the existing client's excel_id here.
+                # For now, we'll just return it.
+                if excel_id and not client.excel_id: # If existing client has no excel_id, assign it
+                    print(f"Updating client {client.id} with excel_id: {excel_id}")
+                    self.update_client(client.id, {'excel_id': excel_id})
+                    return client
+                return client
+
+        # 3. Try to find by email
         if email:
             client = self.get_client_by_email(email)
-            if client: return client
+            if client:
+                print(f"Found client by email '{email}': {client.full_name}")
+                # Same logic as above for excel_id update
+                if excel_id and not client.excel_id:
+                    print(f"Updating client {client.id} with excel_id: {excel_id}")
+                    self.update_client(client.id, {'excel_id': excel_id})
+                    return client
+                return client
+
+        # 4. Try to find by full_name (least reliable for uniqueness)
         if full_name:
-            # Use a more exact match for name if possible, or case-insensitive contains
-            client = self.db.query(Client).filter(Client.full_name.ilike(full_name)).first()
-            if client: return client
-        return None
+            client = self.get_client_by_name(full_name) # Uses ilike for case-insensitivity
+            if client:
+                print(f"Found client by name '{full_name}': {client.full_name}. Consider combining/merging if this isn't the same client.")
+                # Same logic as above for excel_id update
+                if excel_id and not client.excel_id:
+                    print(f"Updating client {client.id} with excel_id: {excel_id}")
+                    self.update_client(client.id, {'excel_id': excel_id})
+                    return client
+                return client
+
+        # 5. If still no client found, create a new one using the provided data
+        if full_name: # full_name is mandatory for new client creation
+            print(f"Client with provided details not found. Creating new client: '{full_name}'.")
+            # Filter out keys that are specifically handled or not directly mapped to Client model constructor
+            filtered_client_data = {
+                k: v for k, v in client_data.items()
+                if k in ['full_name', 'phone_number', 'email', 'facebook_id', 'instagram_handle',
+                         'booksy_used', 'date_of_birth', 'is_blacklisted', 'is_active', 'notes', 'excel_id']
+            }
+            # Ensure date_of_birth is a date object if provided as a string
+            if 'date_of_birth' in filtered_client_data and isinstance(filtered_client_data['date_of_birth'], str):
+                try:
+                    filtered_client_data['date_of_birth'] = datetime.strptime(filtered_client_data['date_of_birth'], '%Y-%m-%d').date()
+                except ValueError:
+                    print(f"Warning: Invalid date_of_birth format '{filtered_client_data['date_of_birth']}'. Skipping date_of_birth for new client.")
+                    filtered_client_data['date_of_birth'] = None
+
+            return self.create_client(**filtered_client_data)
+        else:
+            print("Error: Cannot create client. 'full_name' is required when no existing client is found by other identifiers.")
+            return None
+
 
     def search_clients(self, query: str) -> List[Dict[str, Any]]:
         """
-        Searches clients by full name, phone number, or email.
+        Searches clients by full name, phone number, email, or excel_id (case-insensitive).
         Returns a list of client dictionaries.
         """
-        search_query = f"%{query.lower()}%"
+        search_pattern = f"%{query.lower()}%"
         clients = self.db.query(Client).filter(
-            (Client.full_name.ilike(search_query)) |
-            (Client.phone_number.ilike(search_query)) |
-            (Client.email.ilike(search_query))
+            or_(
+                Client.full_name.ilike(search_pattern),
+                Client.phone_number.ilike(search_pattern),
+                Client.email.ilike(search_pattern),
+                Client.excel_id.ilike(search_pattern) # Added excel_id to search
+            )
         ).order_by(Client.full_name).all()
         return [client.to_dict() for client in clients]
 
@@ -138,15 +198,21 @@ class ClientController:
             print(f"Error: Client with ID {client_id} not found for update.")
             return None
 
-        # Clean up updates dictionary: remove None values for optional fields if they are not explicitly set
-        # And ensure date_of_birth is converted to date object if it's a string
         cleaned_updates = {}
         for key, value in updates.items():
-            if key == 'date_of_birth' and isinstance(value, str):
-                try:
-                    cleaned_updates[key] = datetime.strptime(value, '%Y-%m-%d').date()
-                except ValueError:
-                    print(f"Warning: Invalid date format for date_of_birth: {value}. Skipping update for this field.")
+            if key == 'date_of_birth':
+                if isinstance(value, str):
+                    try:
+                        cleaned_updates[key] = datetime.strptime(value, '%Y-%m-%d').date()
+                    except ValueError:
+                        print(f"Warning: Invalid date format for date_of_birth: {value}. Skipping update for this field.")
+                        continue
+                elif value is None: # Allow setting to None
+                    cleaned_updates[key] = None
+                elif isinstance(value, date): # Allow passing date objects directly
+                    cleaned_updates[key] = value
+                else:
+                    print(f"Warning: Unexpected type for date_of_birth: {type(value)}. Skipping update for this field.")
                     continue
             elif value == "": # Convert empty strings to None for nullable fields
                 cleaned_updates[key] = None
@@ -157,6 +223,8 @@ class ClientController:
             for key, value in cleaned_updates.items():
                 if hasattr(client, key):
                     setattr(client, key, value)
+                else:
+                    print(f"Warning: Attempted to set non-existent field '{key}' on Client model for ID {client_id}.")
             self.db.commit()
             self.db.refresh(client)
             print(f"Client '{client.full_name}' (ID: {client.id}) updated successfully.")
@@ -164,6 +232,7 @@ class ClientController:
         except Exception as e:
             self.db.rollback()
             print(f"Error updating client {client_id}: {e}")
+            traceback.print_exc()
             return None
 
     def delete_client(self, client_id: int) -> bool:
@@ -179,6 +248,7 @@ class ClientController:
             print(f"Error: Client with ID {client_id} not found for deletion.")
             return False
         try:
+            # You might want to add logic here to handle related appointments (e.g., cascade delete, set null, or prevent deletion)
             self.db.delete(client)
             self.db.commit()
             print(f"Client '{client.full_name}' (ID: {client.id}) deleted successfully.")
@@ -186,11 +256,10 @@ class ClientController:
         except Exception as e:
             self.db.rollback()
             print(f"Error deleting client {client_id}: {e}")
+            traceback.print_exc()
             return False
 
     def get_all_clients(self) -> List[Dict[str, Any]]:
         """Retrieves all clients, ordered by full name, as a list of dictionaries."""
         clients = self.db.query(Client).order_by(Client.full_name).all()
         return [client.to_dict() for client in clients]
-
-# updated

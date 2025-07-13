@@ -2,8 +2,12 @@
 import customtkinter as ctk # Use customtkinter
 from tkinter import ttk # Keep ttk for Notebook as ctk doesn't have native tab widget
 import ttkbootstrap as tb
-from config.settings import APP_NAME, WINDOW_SIZE # Use APP_NAME
+from config.settings import settings
 
+# Then, use settings.APP_NAME and settings.WINDOW_SIZE
+# For example, within your MainWindow class or function:
+# self.setWindowTitle(settings.APP_NAME)
+# self.setGeometry(100, 100, int(settings.WINDOW_SIZE.split('x')[0]), int(settings.WINDOW_SIZE.split('x')[1]))
 class MainWindow:
     # Accept dispatch_action_callback to pass it down to child views
     def __init__(self, root: ctk.CTk, dispatch_action_callback):

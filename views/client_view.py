@@ -2,7 +2,7 @@
 import customtkinter as ctk
 from datetime import datetime
 from tkinter import messagebox
-from typing import Callable, Any # Import Callable and Any for type hinting
+from typing import Dict, Callable, Any # Import Callable and Any for type hinting
 
 class ClientView(ctk.CTkFrame):
     # Rename client_controller to dispatch_action_callback
