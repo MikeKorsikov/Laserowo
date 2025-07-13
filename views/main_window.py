@@ -22,3 +22,5 @@ class MainWindow:
 
     def open_clients(self):
         print("Client section to be implemented")
+
+# reviewed

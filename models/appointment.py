@@ -69,3 +69,5 @@ class Appointment(Base):
             'next_suggested_appointment_date': self.next_suggested_appointment_date.isoformat() if self.next_suggested_appointment_date else None,
             'client_full_name': self.client.full_name if self.client else None # Example for client's name
         }
+
+# reviewed

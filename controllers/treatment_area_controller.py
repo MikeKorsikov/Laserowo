@@ -43,3 +43,5 @@ class TreatmentAreaController:
         """Retrieves all treatment areas."""
         areas = self.db.query(TreatmentArea).order_by(TreatmentArea.name).all()
         return [area.to_dict() for area in areas]
+
+# reviewed

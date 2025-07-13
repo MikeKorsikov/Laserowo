@@ -46,3 +46,5 @@ class AppSettings:
 
 # Instantiate settings for easy import
 settings = AppSettings()
+
+# reviewed

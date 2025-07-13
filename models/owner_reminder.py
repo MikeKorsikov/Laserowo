@@ -23,3 +23,5 @@ class OwnerReminder(BaseModel):
     def __repr__(self):
         return (f"<OwnerReminder(id={self.id}, type='{self.reminder_type}', "
                 f"due_date={self.due_date}, dismissed={self.is_dismissed})>")
+
+# reviewed

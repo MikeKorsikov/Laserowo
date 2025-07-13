@@ -20,3 +20,4 @@ class AppointmentView(ctk.CTkFrame): # It's good practice for views to inherit f
         #                                          command=lambda: self.controller_callback("appointment_get_all_appointments"))
         # fetch_appointments_button.pack(pady=10)
         
+# reviewed

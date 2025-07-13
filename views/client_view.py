@@ -250,3 +250,4 @@ class ClientView(ctk.CTkFrame):
 
         self.history_text.configure(text="Select a client to view their history.")
         
+# reviewed

@@ -171,3 +171,5 @@ class ClientController:
             self.db.rollback()
             print(f"Error deleting client {client_id}: {e}")
             return False
+
+# reviewed

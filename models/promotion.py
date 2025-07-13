@@ -22,3 +22,5 @@ class Promotion(BaseModel):
     def __repr__(self):
         return (f"<Promotion(id={self.id}, name='{self.promotion_name}', "
                 f"type='{self.promotion_type}', active={self.is_active})>")
+
+# reviewed 

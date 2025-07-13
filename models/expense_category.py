@@ -15,3 +15,5 @@ class ExpenseCategory(BaseModel):
 
     def __repr__(self):
         return f"<ExpenseCategory(id={self.id}, name='{self.category_name}')>"
+
+#reviewed

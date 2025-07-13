@@ -231,3 +231,5 @@ class AppointmentController:
             )
         ).order_by(Appointment.appointment_date.desc()).all()
         return [self._to_dict_with_relations(appt) for appt in appointments]
+
+# reviewed

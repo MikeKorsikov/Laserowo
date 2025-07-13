@@ -513,3 +513,5 @@ if __name__ == "__main__":
         import_data_from_excel(EXCEL_FILE_PATH, db_session)
     finally:
         db_session.close() # Always close the session
+
+# reviewed

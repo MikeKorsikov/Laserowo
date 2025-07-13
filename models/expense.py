@@ -26,3 +26,5 @@ class Expense(BaseModel):
     def __repr__(self):
         return (f"<Expense(id={self.id}, name='{self.expense_name}', "
                 f"amount={self.amount}, date={self.expense_date})>")
+
+#reviewed 

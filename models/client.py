@@ -43,3 +43,5 @@ class Client(Base):
             'is_active': self.is_active,
             'excel_id': self.excel_id
         }
+
+#reviewed

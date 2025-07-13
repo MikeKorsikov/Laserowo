@@ -20,3 +20,5 @@ class TreatmentArea(Base):
             "id": self.id,
             "name": self.name
         }
+
+#reviewed

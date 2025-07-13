@@ -49,3 +49,5 @@ class OperatingHour(Base):
         if self.is_closed:
             return f"<OperatingHour(day_of_week='{self.day_of_week.value}', is_closed=True)>"
         return f"<OperatingHour(day_of_week='{self.day_of_week.value}', open_time='{self.open_time}', close_time='{self.close_time}')>"
+
+#reviewed

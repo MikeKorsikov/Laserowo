@@ -26,3 +26,5 @@ class Hardware(BaseModel):
     def __repr__(self):
         return (f"<Hardware(id={self.id}, name='{self.device_name}', "
                 f"serial='{self.serial_number}', active={self.is_active})>")
+
+# reviewed

@@ -20,3 +20,5 @@ class PaymentMethod(Base):
             "id": self.id,
             "name": self.name
         }
+
+# reviewed

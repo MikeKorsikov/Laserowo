@@ -43,3 +43,5 @@ class PaymentMethodController:
         """Retrieves all payment methods."""
         methods = self.db.query(PaymentMethod).order_by(PaymentMethod.name).all()
         return [method.to_dict() for method in methods]
+
+# reviewed

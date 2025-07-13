@@ -22,3 +22,6 @@ class DigitalChecklist(Base):
 
     def __repr__(self):
         return f"<DigitalChecklist(id={self.id}, client_id={self.client_id}, date={self.date_filled})>"
+    
+
+#reviewed 
