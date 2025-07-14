@@ -1,10 +1,9 @@
-# models/__init__.py (or similar file that collects your models)
-from .base import Base 
-from .client import Client
-from .appointment import Appointment
-from .service import Service 
-from .treatment_area import TreatmentArea 
-from .payment_method import PaymentMethod 
-from .owner_reminder import OwnerReminder
-from .hardware import Hardware
-from .promotion import Promotion
+"""
+Models package for data entities
+This package will contain database model classes in future iterations
+"""
+
+# Future: Add ORM models here if needed
+# For now, we're using direct SQL queries through services
+
+__all__ = []

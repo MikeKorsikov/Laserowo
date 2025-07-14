@@ -32,75 +32,25 @@ A desktop application built for managing a laser salon business. It supports app
 ## 📂 Project Structure
 
 ```plaintext
-P1_DESKTOP_APP/
-├── assets/
-│   ├── icons/                 # Application icons
-│   └── styles/                # UI styling configurations
-├── config/
-│   ├── __init__.py
-│   ├── database.py            # SQLAlchemy engine, session, Base setup
-│   └── settings.py            # Application-wide settings (e.g., hours, rates)
-├── controllers/
-│   ├── __init__.py
-│   ├── appointment_controller.py # Logic for appointment management
-│   ├── client_controller.py   # Logic for client management
-│   ├── finance_controller.py  # Logic for financial operations
-│   ├── hardware_controller.py # Logic for hardware tracking
-│   ├── reporting_controller.py# Logic for generating reports
-│   └── service_controller.py  # Logic for services and inventory
-├── data/
-│   └── database.db            # SQLite local database file
-├── imports/
-│   └── excel_importer.py      # Script for importing Excel data
-├── models/                    # SQLAlchemy ORM models (DB schema definitions)
-│   ├── __init__.py
-│   ├── appointment.py
-│   ├── client.py
-│   ├── digital_checklist.py
-│   ├── expense.py
-│   ├── expense_category.py
-│   ├── hardware.py
-│   ├── inventory.py
-│   ├── operating_hour.py
-│   ├── owner_reminder.py
-│   ├── payment_method.py
-│   ├── promotion.py
-│   ├── service.py
-│   ├── treatment_area.py
-│   └── user.py
-├── services/                  # Business logic services (e.g., AI/Chatbot)
-│   ├── __init__.py
-│   ├── ai_service.py          # AI/Chatbot integration
-│   └── scheduler.py           # Background scheduler tasks (e.g., for reminders)
-├── tests/
-│   ├── __init__.py
-│   ├── test_controllers.py
-│   ├── test_models.py
-│   └── test_services.py
-├── utils/                     # Utility functions and helpers
-│   ├── __init__.py
-│   ├── constants.py           # Global constants
-│   ├── date_helpers.py        # Date calculation helpers (e.g., visit spacing)
-│   ├── message_helpers.py     # Message formatting for reminders (popups)
-│   └── validation_helpers.py  # Input validation functions
-├── views/                     # CustomTkinter UI components
-│   ├── __init__.py
-│   ├── components/            # Reusable UI widgets
-│   │   ├── date_picker.py
-│   │   └── table_widget.py
-│   ├── appointment_view.py
-│   ├── client_view.py
-│   ├── finance_view.py
-│   ├── hardware_view.py
-│   ├── main_window.py         # Main application window structure
-│   ├── reports_view.py
-│   ├── service_view.py
-│   └── settings_view.py       # View for application settings
-├── LICENSE
-├── README.md                  # This file
-├── main.py                    # Application entry point
-└── requirements.txt           # Python dependencies
 
+├── P1_DESKTOP_APP/
+│   ├── config.py             # Global application configurations and settings.
+│   ├── main.py               # The main application entry point.
+│   ├── database/             # Database management (SQLite initially).
+│   │   ├── db_manager.py     # Handles database operations.
+│   │   └── schema.py         # Defines the database table schemas (in English).
+│   ├── ui/                   # User Interface components.
+│   │   ├── main_window.py    # Defines the main application window and its layout.
+│   │   └── placeholders.py   # Simple placeholder views for modules under development.
+│   ├── services/             # Business logic and application services.
+│   │   ├── __init__.py       # Makes 'services' a Python package.
+│   │   └── client_service.py # Example: Service layer for client-related operations.
+│   ├── data_loader/          # Handles initial data load from CSV files into the DB.
+│   │   └── csv_loader.py     # Script to parse and load CSV data.
+│   │   └── csv_files/        # Directory for initial CSV data files.
+│   └── models/               # Python classes representing database entities.
+│       └── __init__.py       # Makes 'models' a Python package.
+└── README.md                 # This documentation file.
 ```
 ---
 
