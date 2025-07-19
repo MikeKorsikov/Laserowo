@@ -1,146 +1,97 @@
-# client.py
-
+from typing import Optional
 import re
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict
-from database.database import execute_query, fetch_one, fetch_all
+from datetime import datetime
 
 class Client:
-    """Represents a client in the laser hair removal business application."""
+    """Represents a client with associated data and validation."""
     
-    MIN_VISIT_SPACING_WEEKS = 6  # Minimum weeks between laser treatment appointments
-
-    def __init__(self, client_id: Optional[int] = None, first_name: str = "", last_name: str = "", 
-                 email: str = "", phone: str = "", notes: str = ""):
+    def __init__(self, client_id: int, full_name: str, phone_number: str, email: str = None, 
+                 dob: str = None, is_blacklisted: bool = False, is_active: bool = True, 
+                 notes: str = None):
+        """Initialize a Client instance with provided attributes."""
         self.client_id = client_id
-        self.first_name = first_name
-        self.last_name = last_name
-        self.email = email
-        self.phone = phone
+        self.full_name = self._validate_name(full_name)
+        self.phone_number = self._validate_phone(phone_number)
+        self.email = self._validate_email(email) if email else None
+        self.dob = self._validate_date(dob) if dob else None
+        self.is_blacklisted = bool(is_blacklisted)
+        self.is_active = bool(is_active)
         self.notes = notes
+    
+    def _validate_name(self, name: str) -> str:
+        """Validate that the name is non-empty and contains only letters and spaces."""
+        if not name or not isinstance(name, str) or not re.match(r'^[a-zA-Z\s]+$', name.strip()):
+            raise ValueError("Full name must contain only letters and spaces")
+        return name.strip()
+    
+    def _validate_phone(self, phone: str) -> str:
+        """Validate phone number format (e.g., +48 123 456 789 or 123-456-789)."""
+        if not phone or not isinstance(phone, str):
+            raise ValueError("Phone number is required")
+        # Simple validation for Polish format (+48) or basic digits
+        if not re.match(r'^\+?\d{9,15}$', phone.replace(' ', '').replace('-', '')):
+            raise ValueError("Invalid phone number format")
+        return phone.strip()
+    
+    def _validate_email(self, email: str) -> str:
+        """Validate email format."""
+        if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email.strip()):
+            raise ValueError("Invalid email format")
+        return email.strip() if email else None
+    
+    def _validate_date(self, date_str: str) -> str:
+        """Validate date format (YYYY-MM-DD)."""
+        if date_str:
+            try:
+                datetime.strptime(date_str, '%Y-%m-%d')
+                return date_str
+            except ValueError:
+                raise ValueError("Date must be in YYYY-MM-DD format")
+        return None
+    
+    def to_dict(self) -> dict:
+        """Convert client data to a dictionary for database storage or display."""
+        return {
+            'client_id': self.client_id,
+            'full_name': self.full_name,
+            'phone_number': self.phone_number,
+            'email': self.email,
+            'dob': self.dob,
+            'is_blacklisted': self.is_blacklisted,
+            'is_active': self.is_active,
+            'notes': self.notes
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Client':
+        """Create a Client instance from a dictionary (e.g., database result)."""
+        return cls(
+            client_id=data.get('client_id'),
+            full_name=data.get('full_name'),
+            phone_number=data.get('phone_number'),
+            email=data.get('email'),
+            dob=data.get('dob'),
+            is_blacklisted=data.get('is_blacklisted', False),
+            is_active=data.get('is_active', True),
+            notes=data.get('notes')
+        )
 
-    def validate(self) -> bool:
-        """Validate client data before saving to the database."""
-        if not self.first_name or not self.last_name:
-            raise ValueError("First name and last name are required.")
-        if not self.email or not re.match(r"[^@]+@[^@]+\.[^@]+", self.email):
-            raise ValueError("Valid email is required.")
-        if not self.phone or not self.phone.strip():
-            raise ValueError("Phone number is required.")
-        return True
+    def __str__(self) -> str:
+        """Return a string representation of the client."""
+        return f"Client {self.full_name} (ID: {self.client_id})"
 
-    def save(self) -> int:
-        """Save or update the client in the database. Returns the client ID."""
-        try:
-            self.validate()
-            if self.client_id is None:
-                # Insert new client
-                query = """
-                    INSERT INTO clients (first_name, last_name, email, phone, notes)
-                    VALUES (?, ?, ?, ?, ?)
-                """
-                params = (self.first_name, self.last_name, self.email, self.phone, self.notes)
-                self.client_id = execute_query(query, params, return_id=True)
-            else:
-                # Update existing client
-                query = """
-                    UPDATE clients
-                    SET first_name = ?, last_name = ?, email = ?, phone = ?, notes = ?
-                    WHERE id = ?
-                """
-                params = (self.first_name, self.last_name, self.email, self.phone, self.notes, self.client_id)
-                execute_query(query, params)
-            return self.client_id
-        except Exception as e:
-            raise Exception(f"Failed to save client: {str(e)}")
-
-    @staticmethod
-    def get_by_id(client_id: int) -> Optional['Client']:
-        """Retrieve a client by ID from the database."""
-        try:
-            query = "SELECT id, first_name, last_name, email, phone, notes FROM clients WHERE id = ?"
-            result = fetch_one(query, (client_id,))
-            if result:
-                return Client(
-                    client_id=result[0],
-                    first_name=result[1],
-                    last_name=result[2],
-                    email=result[3],
-                    phone=result[4],
-                    notes=result[5]
-                )
-            return None
-        except Exception as e:
-            raise Exception(f"Failed to retrieve client: {str(e)}")
-
-    @staticmethod
-    def get_all() -> List['Client']:
-        """Retrieve all clients from the database."""
-        try:
-            query = "SELECT id, first_name, last_name, email, phone, notes FROM clients"
-            results = fetch_all(query)
-            return [
-                Client(
-                    client_id=row[0],
-                    first_name=row[1],
-                    last_name=row[2],
-                    email=row[3],
-                    phone=row[4],
-                    notes=row[5]
-                ) for row in results
-            ]
-        except Exception as e:
-            raise Exception(f"Failed to retrieve clients: {str(e)}")
-
-    def delete(self) -> None:
-        """Delete the client from the database."""
-        try:
-            if self.client_id is None:
-                raise ValueError("Cannot delete client: No client ID specified.")
-            query = "DELETE FROM clients WHERE id = ?"
-            execute_query(query, (self.client_id,))
-        except Exception as e:
-            raise Exception(f"Failed to delete client: {str(e)}")
-
-    def schedule_appointment(self, date: datetime, treatment_type: str) -> int:
-        """Schedule an appointment for the client, enforcing visit spacing logic. Returns appointment ID."""
-        try:
-            if self.client_id is None:
-                raise ValueError("Cannot schedule appointment: Client not saved.")
-            
-            # Check last appointment date to enforce minimum spacing
-            query = "SELECT MAX(date) FROM appointments WHERE client_id = ? AND treatment_type = ?"
-            last_appointment = fetch_one(query, (self.client_id, treatment_type))
-            if last_appointment and last_appointment[0]:
-                last_date = datetime.strptime(last_appointment[0], "%Y-%m-%d %H:%M:%S")
-                min_next_date = last_date + timedelta(weeks=self.MIN_VISIT_SPACING_WEEKS)
-                if date < min_next_date:
-                    raise ValueError(
-                        f"Appointments must be at least {self.MIN_VISIT_SPACING_WEEKS} weeks apart. "
-                        f"Earliest possible date: {min_next_date.strftime('%Y-%m-%d %H:%M:%S')}"
-                    )
-
-            # Insert appointment
-            query = """
-                INSERT INTO appointments (client_id, date, treatment_type)
-                VALUES (?, ?, ?)
-            """
-            params = (self.client_id, date.strftime("%Y-%m-%d %H:%M:%S"), treatment_type)
-            return execute_query(query, params, return_id=True)
-        except Exception as e:
-            raise Exception(f"Failed to schedule appointment: {str(e)}")
-
-    def get_appointments(self) -> List[Dict]:
-        """Retrieve all appointments for the client."""
-        try:
-            query = "SELECT id, date, treatment_type FROM appointments WHERE client_id = ? ORDER BY date"
-            results = fetch_all(query, (self.client_id,))
-            return [
-                {
-                    "id": row[0],
-                    "date": datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S"),
-                    "treatment_type": row[2]
-                } for row in results
-            ]
-        except Exception as e:
-            raise Exception(f"Failed to retrieve appointments: {str(e)}")
+if __name__ == "__main__":
+    # Example usage
+    try:
+        client = Client(
+            client_id=1,
+            full_name="Anna Kowalska",
+            phone_number="+48 123 456 789",
+            email="anna@example.com",
+            dob="1995-03-10",
+            notes="First visit notes"
+        )
+        print(client)
+        print(client.to_dict())
+    except ValueError as e:
+        print(f"Validation error: {e}")

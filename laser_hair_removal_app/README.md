@@ -33,24 +33,68 @@ A desktop application built for managing a laser salon business. It supports app
 
 ```plaintext
 
-├── P1_DESKTOP_APP/
-│   ├── config.py             # Global application configurations and settings.
-│   ├── main.py               # The main application entry point.
-│   ├── database/             # Database management (SQLite initially).
-│   │   ├── db_manager.py     # Handles database operations.
-│   │   └── schema.py         # Defines the database table schemas (in English).
-│   ├── ui/                   # User Interface components.
-│   │   ├── main_window.py    # Defines the main application window and its layout.
-│   │   └── placeholders.py   # Simple placeholder views for modules under development.
-│   ├── services/             # Business logic and application services.
-│   │   ├── __init__.py       # Makes 'services' a Python package.
-│   │   └── client_service.py # Example: Service layer for client-related operations.
-│   ├── data_loader/          # Handles initial data load from CSV files into the DB.
-│   │   └── csv_loader.py     # Script to parse and load CSV data.
-│   │   └── csv_files/        # Directory for initial CSV data files.
-│   └── models/               # Python classes representing database entities.
-│       └── __init__.py       # Makes 'models' a Python package.
-└── README.md                 # This documentation file.
+├laser_hair_removal_app/
+├── src/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── backend/
+│   │   ├── __init__.py
+│   │   ├── client_manager.py
+│   │   ├── appointment_manager.py
+│   │   ├── finance_manager.py
+│   │   ├── inventory_manager.py
+│   │   ├── hardware_manager.py
+│   │   ├── reminder_manager.py
+│   │   └── reporting.py
+│   ├── database/
+│   │   ├── __init__.py
+│   │   ├── db_setup.py
+│   │   ├── db_operations.py
+│   │   └── migrations/
+│   │       └── init_schema.sql
+│   ├── ui/
+│   │   ├── __init__.py
+│   │   ├── main_window.py
+│   │   ├── client_view.py
+│   │   ├── appointment_view.py
+│   │   ├── finance_view.py
+│   │   ├── inventory_view.py
+│   │   ├── hardware_view.py
+│   │   └── report_view.py
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── logger.py
+│   │   ├── csv_importer.py
+│   │   ├── email_sender.py
+│   │   ├── sms_sender.py
+│   │   └── calendar_sync.py
+│   └── models/
+│       ├── __init__.py
+│       ├── client.py
+│       ├── appointment.py
+│       ├── service.py
+│       ├── expense.py
+│       ├── inventory.py
+│       ├── hardware.py
+│       ├── reminder.py
+│       └── treatment_area.py
+├── data/
+│   ├── database.db
+│   └── imports/
+│       └── clients.csv
+├── config/
+│   ├── app_config.yaml
+│   └── secrets.yaml
+├── tests/
+│   ├── __init__.py
+│   ├── test_client_manager.py
+│   ├── test_appointment_manager.py
+│   ├── test_finance_manager.py
+│   └── test_db_operations.py
+├── requirements.txt
+├── README.md
+└── setup.py
 ```
 ---
 

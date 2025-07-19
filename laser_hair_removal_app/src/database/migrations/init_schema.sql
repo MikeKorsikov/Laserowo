@@ -2,7 +2,7 @@
 -- Creating tables based on the revised requirements for Phase 1 (Desktop, macOS)
 -- Ensuring GDPR compliance with encrypted storage (handled by SQLCipher in db_setup.py)
 
--- Table: clients
+-- Table: clients 
 CREATE TABLE clients (
     client_id INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name TEXT NOT NULL,
