@@ -1,0 +1,25 @@
+# Configuration for the Laser Hair Removal Application
+# Last updated: July 20, 2025
+
+database:
+  db_path: data/database.db
+  encryption_enabled: true
+
+application:
+  log_level: INFO
+  timezone: Europe/Warsaw
+  default_appointment_duration_minutes: 60
+
+notifications:
+  reminder_lead_days: 1
+  default_delivery_method: Popup
+
+ui:
+  theme: light
+  window_title: "Laser Hair Removal Manager"
+  window_size: [800, 600]
+
+paths:
+  data_dir: data
+  config_dir: config
+  log_dir: data/logs
