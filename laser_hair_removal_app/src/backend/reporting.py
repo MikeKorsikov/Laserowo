@@ -1,105 +1,104 @@
-from src.database.db_operations import DatabaseOperations
-from src.backend.finance_manager import FinanceManager
-from src.backend.appointment_manager import AppointmentManager
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List
+from src.database.db_operations import DatabaseOperations
+from src.utils.config import Config
+from src.utils.logger import Logger
+from src.backend.client_manager import ClientManager
+from src.backend.appointment_manager import AppointmentManager
+from src.backend.finance_manager import FinanceManager
+from src.backend.inventory_manager import InventoryManager
+from src.backend.hardware_manager import HardwareManager
+from src.backend.reminder_manager import ReminderManager
+from datetime import datetime
 
 class Reporting:
-    """Manages report generation for the laser hair removal application."""
+    """Generates various reports for the laser hair removal application."""
     
-    def __init__(self, config_path: str, db_path: str):
-        """Initialize with database configuration and path."""
-        self.db = DatabaseOperations(config_path, db_path)
-        self.finance_manager = FinanceManager(config_path, db_path)
+    def __init__(self, config_path: str, secrets_path: str, db_path: str):
+        """Initialize with configuration and database paths."""
+        self.config = Config(config_path, secrets_path)
+        self.logger = Logger().get_logger(__name__)
+        self.db = DatabaseOperations(secrets_path, db_path)
+        self.client_manager = ClientManager(config_path, db_path)
         self.appointment_manager = AppointmentManager(config_path, db_path)
-        self.logger = logging.getLogger(__name__)
-    
-    def generate_daily_report(self) -> Dict:
-        """Generate a daily financial and appointment report for today."""
+        self.finance_manager = FinanceManager(config_path, db_path)
+        self.inventory_manager = InventoryManager(config_path, db_path)
+        self.hardware_manager = HardwareManager(config_path, db_path)
+        self.reminder_manager = ReminderManager(config_path, db_path)
+
+    def get_revenue_report(self, start_date: str, end_date: str):
+        """Generate a revenue report for a date range."""
         try:
-            today = datetime.now().strftime('%Y-%m-%d')
-            report = {
-                'date': today,
-                'revenue': self.finance_manager.get_revenue_by_date(today, today),
-                'expenses': sum(exp.amount for exp in self.finance_manager.get_expenses_by_date(today, today)),
-                'profit': self.finance_manager.get_profit_by_date(today, today),
-                'appointments': len(self.appointment_manager.get_appointments_by_date(today))
-            }
-            self.logger.info(f"Generated daily report for {today}")
-            return report
+            revenue = self.finance_manager.get_revenue_by_date(start_date, end_date)
+            self.logger.info("Generated revenue report for %s to %s: $%.2f", start_date, end_date, revenue)
+            return {"type": "revenue", "start_date": start_date, "end_date": end_date, "total": revenue}
         except Exception as e:
-            self.logger.error(f"Error generating daily report for {today}: {e}")
+            self.logger.error("Error generating revenue report: %s", str(e))
             raise
-    
-    def generate_weekly_report(self) -> Dict:
-        """Generate a weekly financial and appointment report (last 7 days)."""
+
+    def get_expense_report(self, start_date: str, end_date: str):
+        """Generate an expense report for a date range."""
         try:
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-            report = {
-                'period': f"{start_date} to {end_date}",
-                'revenue': self.finance_manager.get_revenue_by_date(start_date, end_date),
-                'expenses': sum(exp.amount for exp in self.finance_manager.get_expenses_by_date(start_date, end_date)),
-                'profit': self.finance_manager.get_profit_by_date(start_date, end_date),
-                'appointments': sum(len(self.appointment_manager.get_appointments_by_date(
-                    (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'))) for i in range(7))
-            }
-            self.logger.info(f"Generated weekly report for {start_date} to {end_date}")
-            return report
+            expenses = self.finance_manager.get_expenses_by_date(start_date, end_date)
+            total_expenses = sum(exp.amount for exp in expenses) if expenses else 0.0
+            self.logger.info("Generated expense report for %s to %s: $%.2f", start_date, end_date, total_expenses)
+            return {"type": "expense", "start_date": start_date, "end_date": end_date, "total": total_expenses, "details": expenses}
         except Exception as e:
-            self.logger.error(f"Error generating weekly report: {e}")
+            self.logger.error("Error generating expense report: %s", str(e))
             raise
-    
-    def generate_client_activity_report(self, start_date: str, end_date: str) -> Dict:
-        """Generate a report of client activity (appointments) between dates."""
+
+    def get_client_progress_report(self, client_id: int):
+        """Generate a client progress report."""
         try:
-            query = """
-                SELECT c.full_name, COUNT(a.appointment_id) as appointment_count
-                FROM clients c
-                LEFT JOIN appointments a ON c.client_id = a.client_id
-                WHERE a.appointment_date BETWEEN ? AND ? AND a.appointment_status = 'Completed'
-                GROUP BY c.client_id, c.full_name
-            """
-            results = self.db.execute_query(query, (start_date, end_date))
-            report = {'period': f"{start_date} to {end_date}", 'clients': results}
-            self.logger.info(f"Generated client activity report for {start_date} to {end_date}")
-            return report
+            client = self.client_manager.get_client(client_id)
+            if not client:
+                raise ValueError(f"Client {client_id} not found")
+            appointments = self.appointment_manager.get_appointments_by_client(client_id)
+            sessions_completed = sum(1 for appt in appointments if appt[7] == 'Completed')  # appointment_status index
+            self.logger.info("Generated client progress report for client %d: %d sessions", client_id, sessions_completed)
+            return {"type": "client_progress", "client_id": client_id, "full_name": client[1], "sessions_completed": sessions_completed, "appointments": appointments}
         except Exception as e:
-            self.logger.error(f"Error generating client activity report: {e}")
+            self.logger.error("Error generating client progress report: %s", str(e))
             raise
-    
-    def export_report_to_file(self, report: Dict, file_path: str) -> bool:
-        """Export a report to a text file (simplified format)."""
+
+    def get_inventory_report(self):
+        """Generate an inventory report with low-stock alerts."""
         try:
-            with open(file_path, 'w') as f:
-                f.write(f"Report Date: {report.get('date', report.get('period', 'N/A'))}\n")
-                f.write(f"Revenue: {report.get('revenue', 0.0)}\n")
-                f.write(f"Expenses: {report.get('expenses', 0.0)}\n")
-                f.write(f"Profit: {report.get('profit', 0.0)}\n")
-                f.write(f"Appointments: {report.get('appointments', 0)}\n")
-                if 'clients' in report:
-                    f.write("Client Activity:\n")
-                    for client in report['clients']:
-                        f.write(f"- {client['full_name']}: {client['appointment_count']} appointments\n")
-            self.logger.info(f"Exported report to {file_path}")
-            return True
+            inventory_items = self.inventory_manager.get_all_inventory()
+            low_stock_items = [item for item in inventory_items if item[2] <= item[4]]  # current_quantity vs low_stock_threshold
+            self.logger.info("Generated inventory report with %d low-stock items", len(low_stock_items))
+            return {"type": "inventory", "total_items": len(inventory_items), "low_stock_items": low_stock_items}
         except Exception as e:
-            self.logger.error(f"Error exporting report to {file_path}: {e}")
+            self.logger.error("Error generating inventory report: %s", str(e))
+            raise
+
+    def get_hardware_report(self):
+        """Generate a hardware maintenance and insurance report."""
+        try:
+            hardware = self.hardware_manager.get_hardware_status()
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            maintenance_due = hardware[3] <= current_date if hardware[3] else False  # next_maintenance_due_date
+            insurance_due = hardware[5] <= current_date if hardware[5] else False  # next_insurance_date
+            self.logger.info("Generated hardware report: maintenance due=%s, insurance due=%s", maintenance_due, insurance_due)
+            return {"type": "hardware", "total_impulses": hardware[1], "maintenance_due": maintenance_due, "insurance_due": insurance_due}
+        except Exception as e:
+            self.logger.error("Error generating hardware report: %s", str(e))
+            raise
+
+    def get_reminder_report(self, due_date: str = None):
+        """Generate a report of active reminders."""
+        try:
+            reminders = self.reminder_manager.get_active_reminders(due_date)
+            self.logger.info("Generated reminder report for %s with %d reminders", due_date or "all", len(reminders))
+            return {"type": "reminders", "due_date": due_date, "reminders": reminders}
+        except Exception as e:
+            self.logger.error("Error generating reminder report: %s", str(e))
             raise
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    reporter = Reporting("config/secrets.yaml", "data/database.db")
+    reporter = Reporting("config/app_config.yaml", "config/secrets.yaml", "data/database.db")
     try:
-        # Generate and export daily report
-        daily_report = reporter.generate_daily_report()
-        reporter.export_report_to_file(daily_report, "data/daily_report.txt")
-        print(f"Daily report: {daily_report}")
-        
-        # Generate and export weekly report
-        weekly_report = reporter.generate_weekly_report()
-        reporter.export_report_to_file(weekly_report, "data/weekly_report.txt")
-        print(f"Weekly report: {weekly_report}")
+        print(reporter.get_revenue_report("2025-07-01", "2025-07-21"))
+        print(reporter.get_inventory_report())
+        print(reporter.get_hardware_report())
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Report generation failed: {e}")
