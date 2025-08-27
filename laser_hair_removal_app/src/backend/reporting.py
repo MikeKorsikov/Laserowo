@@ -94,6 +94,7 @@ class Reporting:
             self.logger.error("Error generating reminder report: %s", str(e))
             raise
 
+
 if __name__ == "__main__":
     reporter = Reporting("config/app_config.yaml", "config/secrets.yaml", "data/database.db")
     try:
