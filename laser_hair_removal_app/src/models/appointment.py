@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta
 from src.models.client import Client  # For potential future reference
 
+
 class Appointment:
     """Represents an appointment with associated data and validation."""
     
